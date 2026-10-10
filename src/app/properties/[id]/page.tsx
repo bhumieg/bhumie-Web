@@ -126,7 +126,7 @@ export default function PropertyDetailsPage({
     if (navigator.share) {
       navigator.share({
         title: property.title,
-        text: `Check out this property on Ghar24: ${property.title} for ${property.priceDisplay}`,
+        text: `Check out this property on Bhumie: ${property.title} for ${property.priceDisplay}`,
         url: window.location.href,
       });
     } else {

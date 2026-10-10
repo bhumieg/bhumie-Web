@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 import prisma from './prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ghar24_secret_default_key_production';
+const JWT_SECRET = process.env.JWT_SECRET || 'bhumie_secret_default_key_production';
 
 export interface JwtPayload {
   userId: string;

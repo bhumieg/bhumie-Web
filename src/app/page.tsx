@@ -273,7 +273,7 @@ export default function HomePage() {
               For Property Owners
             </span>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight mt-4 mb-3">
-              List Your Property on Ghar24 for Free
+              List Your Property on Bhumie for Free
             </h2>
             <p className="text-sm text-blue-100 mb-6 leading-relaxed">
               Connect directly with verified tenants and buyers. Manage your listing, view inquiries, update pricing, and close deals without middlemen.

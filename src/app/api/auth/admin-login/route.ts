@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const { email, secretKey } = await req.json();
 
-    const expectedSecret = process.env.ADMIN_SECRET_KEY || 'admin@ghar24#secure2026';
+    const expectedSecret = process.env.ADMIN_SECRET_KEY || 'admin@bhumie#secure2026';
 
     if (!secretKey || secretKey.trim() !== expectedSecret.trim()) {
       return NextResponse.json(
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const adminEmail = (email && email.includes('@')) ? email.toLowerCase().trim() : 'admin@ghar24.com';
+    const adminEmail = (email && email.includes('@')) ? email.toLowerCase().trim() : 'admin@bhumie.com';
 
     // Find or create admin user
     let user = await prisma.user.findUnique({

@@ -3,14 +3,14 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding Neon PostgreSQL Database for Ghar24...');
+  console.log('Seeding Neon PostgreSQL Database for Bhumie...');
 
   // 1. Create or update Admin
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@ghar24.com' },
+    where: { email: 'admin@bhumie.com' },
     update: { role: 'ADMIN', isVerified: true },
     create: {
-      email: 'admin@ghar24.com',
+      email: 'admin@bhumie.com',
       name: 'Super Admin',
       phone: '+91 99999 00000',
       role: 'ADMIN',
@@ -20,10 +20,10 @@ async function main() {
 
   // 2. Create Owner
   const owner = await prisma.user.upsert({
-    where: { email: 'owner@ghar24.com' },
+    where: { email: 'owner@bhumie.com' },
     update: { role: 'OWNER', isVerified: true },
     create: {
-      email: 'owner@ghar24.com',
+      email: 'owner@bhumie.com',
       name: 'Amit Verma',
       phone: '+91 98765 43210',
       role: 'OWNER',

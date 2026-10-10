@@ -204,7 +204,7 @@ function ChatContent() {
           <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
             <MessageCircle className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-2">Ghar24 Live Chat</h2>
+          <h2 className="text-2xl font-black text-gray-900 mb-2">Bhumie Live Chat</h2>
           <p className="text-sm text-gray-600 mb-6">
             Log in to chat directly with property owners and buyers in real time.
           </p>

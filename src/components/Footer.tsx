@@ -16,7 +16,7 @@ export default function Footer() {
                 <Home className="w-5 h-5" />
               </div>
               <span className="text-2xl font-black text-white tracking-tight">
-                Ghar<span className="text-blue-500">24</span>
+                Bhumie<span className="text-blue-500">.</span>
               </span>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
@@ -96,14 +96,14 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-2.5 text-gray-400">
                 <Mail className="w-4 h-4 text-blue-500 shrink-0" />
-                <span>support@ghar24.com</span>
+                <span>support@bhumie.com</span>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="pt-8 border-t border-gray-800 text-center text-xs text-gray-500 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>&copy; {new Date().getFullYear()} Ghar24. All rights reserved. Powered by Next.js & Neon PostgreSQL.</div>
+          <div>&copy; {new Date().getFullYear()} Bhumie. All rights reserved. Powered by Next.js & Neon PostgreSQL.</div>
           <div className="flex gap-6">
             <span className="hover:text-gray-400 cursor-pointer">Privacy Policy</span>
             <span className="hover:text-gray-400 cursor-pointer">Terms of Service</span>

@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ghar24 | Find Your Next Perfect Place",
-  description: "Browse verified flats, houses, rooms, and properties for rent & sale across Delhi-NCR. Post properties, manage listings, and connect with owners.",
+  title: "Bhumie | Find Your Next Perfect Place",
+  description: "Browse verified flats, houses, rooms, and properties for rent & sale across Delhi-NCR. Post properties, manage listings, and connect with owners on Bhumie.",
 };
 
 export default function RootLayout({

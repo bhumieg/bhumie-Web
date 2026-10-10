@@ -19,8 +19,8 @@ export async function sendEmailViaBrevo({
   htmlContent,
 }: SendEmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'support@ghar24.com';
-  const senderName = process.env.BREVO_SENDER_NAME || 'Ghar24 Security';
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'support@bhumie.com';
+  const senderName = process.env.BREVO_SENDER_NAME || 'Bhumie Security';
 
   // If Brevo API key is not yet configured, provide developer fallback
   if (!apiKey || apiKey.trim() === '' || apiKey.includes('your_brevo')) {
@@ -106,19 +106,19 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string =
     <body>
       <div class="container">
         <div class="header">
-          <h1>Ghar24</h1>
+          <h1>Bhumie</h1>
           <p>Your Next Perfect Place</p>
         </div>
         <div class="content">
           <p>Hello,</p>
-          <p>You requested a one-time verification code for <strong>${purpose}</strong> on Ghar24.</p>
+          <p>You requested a one-time verification code for <strong>${purpose}</strong> on Bhumie.</p>
           <div class="otp-box">
             <div class="otp-code">${otp}</div>
           </div>
           <p class="note">This code will expire in <strong>10 minutes</strong>. If you did not request this OTP, please ignore this email or contact support.</p>
         </div>
         <div class="footer">
-          &copy; ${new Date().getFullYear()} Ghar24 Real Estate Portal. All rights reserved.
+          &copy; ${new Date().getFullYear()} Bhumie Real Estate Portal. All rights reserved.
         </div>
       </div>
     </body>
@@ -127,7 +127,7 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string =
 
   const result = await sendEmailViaBrevo({
     toEmail: email,
-    subject: `Your Ghar24 Verification Code: ${otp}`,
+    subject: `Your Bhumie Verification Code: ${otp}`,
     htmlContent: html,
   });
 

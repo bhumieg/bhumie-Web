@@ -195,7 +195,7 @@ export default function AdminPortalPage() {
                 type="email"
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
-                placeholder="admin@ghar24.com"
+                placeholder="admin@bhumie.com"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
@@ -241,7 +241,7 @@ export default function AdminPortalPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Admin Portal</h1>
             <p className="text-xs text-gray-500 font-semibold">
-              Ghar24 Master Control • Connected to Neon PostgreSQL Database
+              Bhumie Master Control • Connected to Neon PostgreSQL Database
             </p>
           </div>
         </div>
@@ -469,7 +469,7 @@ export default function AdminPortalPage() {
               <tbody className="divide-y divide-gray-100 font-medium">
                 {usersList.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-50/70">
-                    <td className="py-3 px-4 font-bold text-gray-900">{u.name || 'Ghar24 User'}</td>
+                    <td className="py-3 px-4 font-bold text-gray-900">{u.name || 'Bhumie User'}</td>
                     <td className="py-3 px-4 text-gray-600">{u.email}</td>
                     <td className="py-3 px-4">
                       <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 uppercase">

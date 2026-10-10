@@ -5,11 +5,11 @@ export async function POST() {
   try {
     // 1. Create or ensure Admin & Sample Owner
     const adminUser = await prisma.user.upsert({
-      where: { email: 'admin@ghar24.com' },
+      where: { email: 'admin@bhumie.com' },
       update: { role: 'ADMIN', isVerified: true },
       create: {
-        email: 'admin@ghar24.com',
-        name: 'Ghar24 SuperAdmin',
+        email: 'admin@bhumie.com',
+        name: 'Bhumie SuperAdmin',
         phone: '+91 99999 11111',
         role: 'ADMIN',
         isVerified: true,
@@ -17,10 +17,10 @@ export async function POST() {
     });
 
     const ownerUser = await prisma.user.upsert({
-      where: { email: 'owner@ghar24.com' },
+      where: { email: 'owner@bhumie.com' },
       update: { role: 'OWNER', isVerified: true },
       create: {
-        email: 'owner@ghar24.com',
+        email: 'owner@bhumie.com',
         name: 'Rajesh Sharma',
         phone: '+91 98765 43210',
         role: 'OWNER',

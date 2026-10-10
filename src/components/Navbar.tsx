@@ -38,7 +38,7 @@ export default function Navbar() {
               </div>
               <div className="flex flex-col">
                 <span className="text-2xl font-black text-gray-900 tracking-tight leading-none">
-                  Ghar<span className="text-blue-600">24</span>
+                  Bhumie<span className="text-blue-600">.</span>
                 </span>
                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                   Real Estate
@@ -146,7 +146,7 @@ export default function Navbar() {
                 {dropdownOpen && (
                   <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50">
                     <div className="px-3 py-2 border-b border-gray-100 mb-1">
-                      <p className="text-xs font-bold text-gray-900 truncate">{user.name || 'Ghar24 User'}</p>
+                      <p className="text-xs font-bold text-gray-900 truncate">{user.name || 'Bhumie User'}</p>
                       <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
                       <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 uppercase">
                         {user.role}

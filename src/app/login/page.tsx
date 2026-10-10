@@ -95,7 +95,7 @@ export default function LoginPage() {
             <ShieldCheck className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-gray-900">Ghar24</h1>
+            <h1 className="text-2xl font-black tracking-tight text-gray-900">Bhumie</h1>
             <p className="text-xs text-gray-500 font-medium">Verified Real Estate Platform</p>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function LoginPage() {
             {step === 'OTP'
               ? `Enter the 6-digit verification code sent to ${email}`
               : isSignUp
-              ? 'Join Ghar24 to buy, rent, or list properties with zero hassle.'
+              ? 'Join Bhumie to buy, rent, or list properties with zero hassle.'
               : 'Log in with your email address to receive an instant OTP.'}
           </p>
         </div>

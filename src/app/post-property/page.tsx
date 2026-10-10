@@ -215,7 +215,7 @@ export default function PostPropertyPage() {
       <div className="mb-8 text-center sm:text-left">
         <h1 className="text-3xl font-black text-gray-900 tracking-tight">Add Property</h1>
         <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
-          Complete the 6 simple steps to post your listing on Ghar24
+          Complete the 6 simple steps to post your listing on Bhumie
         </p>
       </div>
 
@@ -678,7 +678,7 @@ export default function PostPropertyPage() {
             <div className="text-xs text-gray-500 bg-emerald-50 text-emerald-800 p-4 rounded-2xl border border-emerald-200 flex items-center gap-2.5">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
               <span>
-                Your property will be live instantly in Ghar24 search results and owner dashboard.
+                Your property will be live instantly in Bhumie search results and owner dashboard.
               </span>
             </div>
           </div>
