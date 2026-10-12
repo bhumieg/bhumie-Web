@@ -127,6 +127,44 @@ export default function PostPropertyPage() {
     });
   };
 
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingImages(true);
+    setUploadError(null);
+
+    try {
+      const data = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        data.append('files', files[i]);
+      }
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: data,
+      });
+
+      const result = await res.json();
+      if (result.success && result.urls) {
+        setFormData((prev) => ({
+          ...prev,
+          images: [...prev.images, ...result.urls],
+        }));
+      } else {
+        setUploadError(result.message || 'Image upload failed');
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'Error uploading images');
+    } finally {
+      setUploadingImages(false);
+      e.target.value = '';
+    }
+  };
+
   const addImage = () => {
     if (newImageUrl.trim()) {
       setFormData((prev) => ({
@@ -377,10 +415,47 @@ export default function PostPropertyPage() {
               <p className="text-xs text-gray-500">Add clear photos to get more enquiries (up to 15)</p>
             </div>
 
-            {/* Image Preview Grid matching screenshot */}
+            {/* Cloudinary File Upload Dropzone */}
+            <div className="relative border-2 border-dashed border-blue-200 hover:border-blue-400 bg-blue-50/40 hover:bg-blue-50/70 rounded-3xl p-6 transition-all text-center group">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                disabled={uploadingImages}
+                onChange={handleFileUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
+              />
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  {uploadingImages ? (
+                    <Loader2 className="w-7 h-7 animate-spin" />
+                  ) : (
+                    <Upload className="w-7 h-7" />
+                  )}
+                </div>
+                <h4 className="text-sm font-bold text-gray-900 mb-1">
+                  {uploadingImages ? 'Uploading & Optimizing with Cloudinary...' : 'Upload Photos from Device'}
+                </h4>
+                <p className="text-xs text-gray-500 mb-2">
+                  Drag and drop, or click to browse (JPG, PNG, WebP)
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Cloudinary CDN Optimized (Auto WebP / AVIF)</span>
+                </div>
+              </div>
+            </div>
+
+            {uploadError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold">
+                {uploadError}
+              </div>
+            )}
+
+            {/* Image Preview Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {formData.images.map((img, idx) => (
-                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 group border border-gray-200">
+                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 group border border-gray-200 shadow-xs">
                   <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
                   <button
                     type="button"
@@ -390,16 +465,16 @@ export default function PostPropertyPage() {
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                   <span className="absolute bottom-1.5 left-2 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded-md font-bold">
-                    Photo {idx + 1}
+                    {img.includes('cloudinary') ? 'Cloudinary' : `Photo ${idx + 1}`}
                   </span>
                 </div>
               ))}
             </div>
 
-            {/* Add Image URL / Upload Field */}
+            {/* Alternative: Add Image URL manually */}
             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
               <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
-                Add Image (Paste URL or Unsplash link)
+                Or Paste Image Web URL
               </label>
               <div className="flex gap-2">
                 <input
@@ -412,10 +487,10 @@ export default function PostPropertyPage() {
                 <button
                   type="button"
                   onClick={addImage}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  Add Photo
+                  Add URL
                 </button>
               </div>
             </div>

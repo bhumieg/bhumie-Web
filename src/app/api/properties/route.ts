@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
+import { getOptimizedImageUrl } from '@/lib/cloudinary';
 
 export const dynamic = 'force-dynamic';
 
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
 
     // Provide default placeholder images if none provided
     const propertyImages = Array.isArray(images) && images.length > 0
-      ? images
+      ? images.map((img: string) => getOptimizedImageUrl(img))
       : [
           'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
           'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80',
