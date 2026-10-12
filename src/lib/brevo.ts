@@ -19,8 +19,8 @@ export async function sendEmailViaBrevo({
   htmlContent,
 }: SendEmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'support@bhumie.com';
-  const senderName = process.env.BREVO_SENDER_NAME || 'Bhumie Security';
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'ghark247@gmail.com';
+  const senderName = process.env.BREVO_SENDER_NAME || 'Bhumie';
 
   // If Brevo API key is not yet configured, provide developer fallback
   if (!apiKey || apiKey.trim() === '' || apiKey.includes('your_brevo')) {
@@ -132,5 +132,89 @@ export async function sendOtpEmail(email: string, otp: string, purpose: string =
   });
 
   return result;
+}
+
+export async function sendWelcomeEmail(email: string, name: string): Promise<{ success: boolean; error?: string }> {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7f8fc; margin: 0; padding: 20px; }
+        .container { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        .header { background: #315bef; padding: 28px 24px; text-align: center; color: white; }
+        .header h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+        .content { padding: 32px 28px; color: #333333; line-height: 1.6; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #888888; border-top: 1px solid #eeeeee; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Bhumie</h1>
+          <p>Find Your Next Perfect Place</p>
+        </div>
+        <div class="content">
+          <h2>Welcome, ${name || 'User'}! 🎉</h2>
+          <p>Your account on Bhumie has been successfully created. You can now explore verified rental and sale properties, connect directly with property owners via real-time chat, and list your own properties for free.</p>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} Bhumie Real Estate Portal. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmailViaBrevo({
+    toEmail: email,
+    toName: name,
+    subject: `Welcome to Bhumie! 🏡`,
+    htmlContent: html,
+  });
+}
+
+export async function sendNotificationEmail(
+  toEmail: string,
+  subject: string,
+  message: string,
+  toName?: string
+): Promise<{ success: boolean; error?: string }> {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f7f8fc; margin: 0; padding: 20px; }
+        .container { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+        .header { background: #315bef; padding: 24px; text-align: center; color: white; }
+        .content { padding: 28px; color: #333333; line-height: 1.6; }
+        .footer { padding: 18px; text-align: center; font-size: 12px; color: #888888; border-top: 1px solid #eeeeee; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h2 style="margin: 0;">Bhumie Notification</h2>
+        </div>
+        <div class="content">
+          <p>${message.replace(/\n/g, '<br/>')}</p>
+        </div>
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} Bhumie Real Estate Portal. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmailViaBrevo({
+    toEmail,
+    toName,
+    subject,
+    htmlContent: html,
+  });
 }
 

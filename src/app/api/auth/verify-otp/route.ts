@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { signJwtToken } from '@/lib/auth';
+import { sendWelcomeEmail } from '@/lib/brevo';
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,6 +56,11 @@ export async function POST(req: NextRequest) {
           isVerified: true,
         },
       });
+
+      // Send welcome email via Brevo in background
+      sendWelcomeEmail(user.email, user.name || '').catch((err) =>
+        console.error('Failed to send welcome email:', err)
+      );
     } else {
       const dataToUpdate: any = { isVerified: true };
       if (name && name.trim()) {

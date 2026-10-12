@@ -38,6 +38,17 @@ export async function POST(req: NextRequest) {
     // If BREVO_API_KEY is not configured, also return devOtp in response for convenient testing
     const isDevMode = !process.env.BREVO_API_KEY || process.env.BREVO_API_KEY.includes('your_brevo');
 
+    if (!emailResult.success && !isDevMode) {
+      console.error('Brevo sendOtpEmail failed:', emailResult.error);
+      return NextResponse.json(
+        {
+          success: false,
+          message: emailResult.error || 'Failed to dispatch verification email. Please try again.',
+        },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message: `OTP sent to ${normalizedEmail}`,
