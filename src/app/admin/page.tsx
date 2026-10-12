@@ -19,10 +19,14 @@ import {
   Search,
   Loader2,
   TrendingUp,
+  ArrowLeft,
+  ExternalLink,
+  PlusCircle,
+  LogOut,
 } from 'lucide-react';
 
 export default function AdminPortalPage() {
-  const { user, adminLogin } = useAuth();
+  const { user, adminLogin, logout } = useAuth();
 
   const [adminSecretKey, setAdminSecretKey] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
@@ -170,7 +174,18 @@ export default function AdminPortalPage() {
   // If Not Admin, render Secure Admin Portal Login
   if (!isAdmin) {
     return (
-      <div className="min-h-screen py-20 px-4 flex items-center justify-center">
+      <div className="min-h-screen py-16 px-4 flex flex-col items-center justify-center bg-[#F7F8FC]">
+        <div className="w-full max-w-md mb-4 flex items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to Live Website</span>
+          </Link>
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Admin Gate</span>
+        </div>
+
         <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
           <div className="w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center mx-auto mb-4 font-bold">
             <Shield className="w-7 h-7" />
@@ -229,38 +244,67 @@ export default function AdminPortalPage() {
     );
   }
 
-  // Admin Dashboard View
+  // Admin Dashboard View - Pure Dedicated Admin Portal (User Portal Hidden)
   return (
-    <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            <Shield className="w-6 h-6" />
+    <div className="min-h-screen bg-[#F7F8FC] flex flex-col">
+      {/* Standalone Admin Top Navigation Bar */}
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-black text-gray-900 tracking-tight">Bhumie Admin</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Live
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 font-semibold hidden sm:block">
+                Master Database Control • Connected to Neon DB
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Admin Portal</h1>
-            <p className="text-xs text-gray-500 font-semibold">
-              Bhumie Master Control • Connected to Neon PostgreSQL Database
-            </p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/properties"
-            className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-700 rounded-xl"
-          >
-            Live Site
-          </Link>
-          <Link
-            href="/post-property"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs"
-          >
-            + Add Property
-          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-50 text-xs text-gray-700 font-medium border border-gray-200/80">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="font-mono text-[11px] font-bold text-gray-800">{user?.email || 'admin@bhumie.com'}</span>
+            </div>
+
+            <Link
+              href="/"
+              target="_blank"
+              className="px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-700 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+              title="Open public website in new tab"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-gray-500" />
+              <span className="hidden sm:inline">Live Site</span>
+            </Link>
+
+            <Link
+              href="/post-property"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Post Property</span>
+            </Link>
+
+            <button
+              onClick={() => logout()}
+              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Sign Out of Admin Portal"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
+
+      {/* Main Admin Dashboard Body */}
+      <div className="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-gray-200 pb-4 mb-8 overflow-x-auto">
@@ -557,6 +601,7 @@ export default function AdminPortalPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
   Home,
@@ -18,11 +19,17 @@ import {
 } from 'lucide-react';
 
 export default function Navbar() {
+  const pathname = usePathname();
   const { user, openAuthModal, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [citySelectorOpen, setCitySelectorOpen] = useState(false);
   const [selectedCity, setSelectedCity] = useState('New Delhi');
+
+  // Hide User Portal Navbar completely on Admin Portal
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   const cities = ['New Delhi', 'Noida', 'Gurgaon', 'Greater Noida', 'Faridabad', 'Ghaziabad'];
 
