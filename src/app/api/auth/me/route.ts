@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
         role: user.role,
         phone: user.phone,
         isVerified: user.isVerified,
+        avatar: user.avatar,
+        sellerVerified: user.sellerVerified,
+        verificationStatus: user.verificationStatus,
       },
     });
   } catch (error: any) {

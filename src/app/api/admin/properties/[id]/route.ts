@@ -76,6 +76,11 @@ export async function PATCH(
     // Specifications & Location
     if (body.bedrooms !== undefined) dataToUpdate.bedrooms = parseInt(body.bedrooms) || 1;
     if (body.bathrooms !== undefined) dataToUpdate.bathrooms = parseInt(body.bathrooms) || 1;
+    if (body.floor !== undefined) dataToUpdate.floor = body.floor;
+    if (body.totalFloors !== undefined) dataToUpdate.totalFloors = body.totalFloors;
+    if (body.balconies !== undefined) dataToUpdate.balconies = parseInt(body.balconies) || 0;
+    if (body.hasLift !== undefined) dataToUpdate.hasLift = Boolean(body.hasLift);
+    if (body.roadWidth !== undefined) dataToUpdate.roadWidth = body.roadWidth;
     if (body.address !== undefined) dataToUpdate.address = body.address;
     if (body.locality !== undefined) dataToUpdate.locality = body.locality;
     if (body.city !== undefined) dataToUpdate.city = body.city;

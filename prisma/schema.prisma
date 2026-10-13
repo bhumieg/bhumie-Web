@@ -34,8 +34,14 @@ model User {
   phone         String?
   role          Role           @default(USER)
   isVerified    Boolean        @default(false)
-  avatar        String?
-  createdAt     DateTime       @default(now())
+  avatar             String?
+  // Seller Verification (PAN & Aadhaar)
+  panNumber          String?
+  aadhaarNumber      String?
+  sellerVerified     Boolean        @default(false)
+  verificationStatus String         @default("UNVERIFIED") // UNVERIFIED, PENDING, VERIFIED, REJECTED
+  verificationDocUrl String?
+  createdAt          DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   properties           Property[]     @relation("UserProperties")
@@ -79,6 +85,9 @@ model Property {
   bathrooms       Int             @default(1)
   floor           String?
   totalFloors     String?
+  balconies       Int?            @default(0)
+  hasLift         Boolean?        @default(false)
+  roadWidth       String?         // in ft or m, e.g. "30 ft"
   availableFrom   String?
   ageOfProperty   String?
   address         String?

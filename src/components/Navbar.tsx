@@ -141,9 +141,17 @@ export default function Navbar() {
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all cursor-pointer"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">
-                    {user.name ? user.name[0].toUpperCase() : user.email[0].toUpperCase()}
-                  </div>
+                  {user.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name || 'User'}
+                      className="w-7 h-7 rounded-lg object-cover border border-gray-200"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">
+                      {user.name ? user.name[0].toUpperCase() : user.email[0].toUpperCase()}
+                    </div>
+                  )}
                   <div className="text-left text-xs font-bold text-gray-800 max-w-[100px] truncate">
                     {user.name || user.email.split('@')[0]}
                   </div>
@@ -155,10 +163,26 @@ export default function Navbar() {
                     <div className="px-3 py-2 border-b border-gray-100 mb-1">
                       <p className="text-xs font-bold text-gray-900 truncate">{user.name || 'Bhumie User'}</p>
                       <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
-                      <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 uppercase">
-                        {user.role}
-                      </span>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 uppercase">
+                          {user.role === 'OWNER' ? 'Seller' : user.role === 'USER' ? 'Buyer' : 'Admin'}
+                        </span>
+                        {user.sellerVerified && (
+                          <span className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-600">
+                            ✓ Verified
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    <Link
+                      href="/profile"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 rounded-xl"
+                    >
+                      <UserIcon className="w-4 h-4 text-blue-600" />
+                      My Profile & Verification
+                    </Link>
 
                     <Link
                       href="/chat"
@@ -289,6 +313,13 @@ export default function Navbar() {
                   <div className="px-3 text-xs text-gray-500">
                     Logged in as <strong className="text-gray-900">{user.email}</strong>
                   </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block px-3 py-2 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    My Profile & Verification
+                  </Link>
                   <Link
                     href="/my-properties"
                     onClick={() => setMobileMenuOpen(false)}

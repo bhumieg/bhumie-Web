@@ -86,3 +86,4 @@ export function getOptimizedImageUrl(url: string, width: number = 1200): string 
 
   return url;
 }
+

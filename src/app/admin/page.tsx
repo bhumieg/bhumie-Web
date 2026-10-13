@@ -26,6 +26,11 @@ import {
   Upload,
   X,
   Plus,
+  ShieldCheck,
+  Clock,
+  UserCheck,
+  UserX,
+  Lock,
 } from 'lucide-react';
 
 export default function AdminPortalPage() {
@@ -44,6 +49,11 @@ export default function AdminPortalPage() {
   const [loadingData, setLoadingData] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // User management filters
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'USER' | 'OWNER' | 'ADMIN'>('ALL');
+  const [userVerificationFilter, setUserVerificationFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING' | 'UNVERIFIED'>('ALL');
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   // Property CRUD Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,6 +77,11 @@ export default function AdminPortalPage() {
     priceValue: '18000',
     bedrooms: '2',
     bathrooms: '2',
+    floor: '2nd Floor',
+    totalFloors: '14',
+    balconies: '2',
+    hasLift: true,
+    roadWidth: '40 ft',
     address: 'Sector 62, Noida, Uttar Pradesh',
     locality: 'Sector 62',
     city: 'Noida',
@@ -101,7 +116,9 @@ export default function AdminPortalPage() {
       }
 
       if (activeTab === 'PROPERTIES') {
-        const propRes = await fetch(`/api/admin/properties?status=${statusFilter}&search=${encodeURIComponent(searchFilter)}`);
+        const propRes = await fetch(
+          `/api/admin/properties?status=${statusFilter}&search=${encodeURIComponent(searchFilter)}`
+        );
         const propData = await propRes.json();
         if (propData.success) setProperties(propData.properties || []);
       }
@@ -195,7 +212,7 @@ export default function AdminPortalPage() {
   };
 
   const handleDeleteProperty = async (propId: string, title: string) => {
-    if (!confirm(`Are you sure you want to permanently delete "${title}"?`)) return;
+    if (!confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) return;
 
     try {
       const res = await fetch(`/api/admin/properties/${propId}`, {
@@ -205,10 +222,71 @@ export default function AdminPortalPage() {
       if (data.success) {
         setProperties((prev) => prev.filter((p) => p.id !== propId));
       } else {
-        alert(data.message || 'Failed to delete');
+        alert(data.message || 'Failed to delete property');
+      }
+    } catch {
+      alert('Server error deleting property');
+    }
+  };
+
+  // Seller Verification Handlers (Requirement 5 & 12)
+  const handleVerifySeller = async (userId: string, verificationStatus: 'VERIFIED' | 'REJECTED') => {
+    try {
+      setUpdatingUserId(userId);
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          verificationStatus,
+          sellerVerified: verificationStatus === 'VERIFIED',
+          role: verificationStatus === 'VERIFIED' ? 'OWNER' : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUsersList((prev) =>
+          prev.map((u) =>
+            u.id === userId
+              ? {
+                  ...u,
+                  verificationStatus,
+                  sellerVerified: verificationStatus === 'VERIFIED',
+                  ...(verificationStatus === 'VERIFIED' ? { role: 'OWNER' } : {}),
+                }
+              : u
+          )
+        );
+      } else {
+        alert(data.message || 'Failed to update seller verification status');
       }
     } catch (err) {
-      alert('Error deleting property');
+      alert('Error updating verification status');
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: 'USER' | 'OWNER' | 'ADMIN') => {
+    try {
+      setUpdatingUserId(userId);
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role: newRole }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUsersList((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+        );
+      } else {
+        alert(data.message || 'Failed to update user role');
+      }
+    } catch {
+      alert('Error changing user role');
+    } finally {
+      setUpdatingUserId(null);
     }
   };
 
@@ -235,6 +313,11 @@ export default function AdminPortalPage() {
       priceValue: prop.priceValue ? String(prop.priceValue) : '',
       bedrooms: prop.bedrooms ? String(prop.bedrooms) : '1',
       bathrooms: prop.bathrooms ? String(prop.bathrooms) : '1',
+      floor: prop.floor || '',
+      totalFloors: prop.totalFloors ? String(prop.totalFloors) : '',
+      balconies: prop.balconies !== undefined && prop.balconies !== null ? String(prop.balconies) : '1',
+      hasLift: Boolean(prop.hasLift),
+      roadWidth: prop.roadWidth || '',
       address: prop.address || '',
       locality: prop.locality || '',
       city: prop.city || '',
@@ -265,6 +348,7 @@ export default function AdminPortalPage() {
       for (let i = 0; i < files.length; i++) {
         fd.append('files', files[i]);
       }
+      fd.append('folder', 'bhumie_properties');
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -369,46 +453,58 @@ export default function AdminPortalPage() {
           </p>
 
           {loginError && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 shrink-0" />
-              <span>{loginError}</span>
+            <div className="p-3 mb-4 rounded-xl bg-red-50 text-red-700 text-xs font-semibold border border-red-200">
+              {loginError}
             </div>
           )}
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Admin Email</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                Admin Master Secret Key
+              </label>
+              <div className="relative">
+                <Key className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
+                <input
+                  type="password"
+                  value={adminSecretKey}
+                  onChange={(e) => setAdminSecretKey(e.target.value)}
+                  placeholder="Enter Master Secret"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                Admin Email (Optional)
+              </label>
               <input
                 type="email"
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
                 placeholder="admin@bhumie.com"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Admin Secret Key</label>
-              <div className="relative">
-                <Key className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
-                <input
-                  type="password"
-                  required
-                  value={adminSecretKey}
-                  onChange={(e) => setAdminSecretKey(e.target.value)}
-                  placeholder="Enter admin secret key"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-xs font-mono font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
             </div>
 
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {loginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-              Access Admin Portal
+              {loginLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Verifying Key...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Authorize & Enter Admin Portal</span>
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -416,85 +512,81 @@ export default function AdminPortalPage() {
     );
   }
 
-  // Admin Dashboard View - Pure Dedicated Admin Portal (User Portal Hidden)
+  // Filtered users for User Management tab
+  const filteredUsers = usersList.filter((u) => {
+    if (userRoleFilter !== 'ALL' && u.role !== userRoleFilter) return false;
+    if (userVerificationFilter === 'VERIFIED' && !u.sellerVerified && u.verificationStatus !== 'VERIFIED')
+      return false;
+    if (userVerificationFilter === 'PENDING' && u.verificationStatus !== 'PENDING') return false;
+    if (userVerificationFilter === 'UNVERIFIED' && (u.sellerVerified || u.verificationStatus === 'VERIFIED'))
+      return false;
+    return true;
+  });
+
+  const pendingVerificationCount = usersList.filter((u) => u.verificationStatus === 'PENDING').length;
+
   return (
-    <div className="min-h-screen bg-[#F7F8FC] flex flex-col">
-      {/* Standalone Admin Top Navigation Bar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-gray-900 tracking-tight">Bhumie Admin</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Live
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-500 font-semibold hidden sm:block">
-                Master Database Control • Connected to Neon DB
-              </p>
-            </div>
+    <div className="min-h-screen bg-[#F8FAFC] py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 font-black text-xl">
+            B.
           </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-50 text-xs text-gray-700 font-medium border border-gray-200/80">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="font-mono text-[11px] font-bold text-gray-800">{user?.email || 'admin@bhumie.com'}</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">Admin Portal</h1>
+              <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-black uppercase">
+                Root Access
+              </span>
             </div>
-
-            <Link
-              href="/"
-              target="_blank"
-              className="px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-700 rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
-              title="Open public website in new tab"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-gray-500" />
-              <span className="hidden sm:inline">Live Site</span>
-            </Link>
-
-            <button
-              onClick={openCreateModal}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>+ Add Property</span>
-            </button>
-
-            <button
-              onClick={() => logout()}
-              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Sign Out of Admin Portal"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
-            </button>
+            <p className="text-xs text-gray-500">
+              Manage Delhi-NCR properties, buyer & seller visibility, and verification workflows.
+            </p>
           </div>
         </div>
-      </header>
 
-      {/* Main Admin Dashboard Body */}
-      <div className="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="px-3.5 py-2 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-xs flex items-center gap-1.5"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-gray-500" />
+            <span>Live Site</span>
+          </Link>
+          <button
+            onClick={logout}
+            className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-xs font-bold text-red-600 border border-red-200/60 shadow-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-gray-200 pb-4 mb-8 overflow-x-auto">
+      {/* Admin Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-6 overflow-x-auto">
         {[
-          { key: 'PROPERTIES', label: 'All Properties', icon: Building },
-          { key: 'USERS', label: 'Registered Users', icon: Users },
-          { key: 'INQUIRIES', label: 'Tenant Leads', icon: MessageSquare },
-          { key: 'STATS', label: 'Overview Analytics', icon: TrendingUp },
+          { id: 'PROPERTIES', label: 'Properties & CRUD', icon: Building },
+          {
+            id: 'USERS',
+            label: `Users (Buyers & Sellers)${
+              pendingVerificationCount > 0 ? ` (${pendingVerificationCount} Pending)` : ''
+            }`,
+            icon: Users,
+          },
+          { id: 'INQUIRIES', label: 'Inquiries & Leads', icon: MessageSquare },
+          { id: 'STATS', label: 'Platform Stats', icon: TrendingUp },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === tab.key
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === tab.id
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -565,6 +657,7 @@ export default function AdminPortalPage() {
                     <tr>
                       <th className="py-3.5 px-4">Property</th>
                       <th className="py-3.5 px-4">Pricing</th>
+                      <th className="py-3.5 px-4">Specs & Road</th>
                       <th className="py-3.5 px-4">Owner</th>
                       <th className="py-3.5 px-4">Status</th>
                       <th className="py-3.5 px-4 text-center">Verified</th>
@@ -578,7 +671,10 @@ export default function AdminPortalPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-3">
                             <img
-                              src={prop.images[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=100&q=80'}
+                              src={
+                                prop.images[0] ||
+                                'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=100&q=80'
+                              }
                               alt=""
                               className="w-12 h-12 rounded-xl object-cover shrink-0"
                             />
@@ -598,6 +694,21 @@ export default function AdminPortalPage() {
 
                         <td className="py-3 px-4 font-bold text-blue-600 whitespace-nowrap">
                           {prop.priceDisplay}
+                        </td>
+
+                        <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
+                          <div>
+                            Floor: <strong>{prop.floor || '—'}</strong>
+                            {prop.totalFloors ? ` of ${prop.totalFloors}` : ''}
+                          </div>
+                          <div className="text-[11px] text-gray-400">
+                            Balconies: {prop.balconies ?? '—'} • Lift: {prop.hasLift ? 'Yes' : 'No'}
+                          </div>
+                          {prop.roadWidth && (
+                            <div className="text-[10px] text-gray-500 font-mono">
+                              Road: {prop.roadWidth}
+                            </div>
+                          )}
                         </td>
 
                         <td className="py-3 px-4 whitespace-nowrap text-gray-600">
@@ -622,7 +733,9 @@ export default function AdminPortalPage() {
                           <button
                             onClick={() => handleToggleVerify(prop.id, prop.verified)}
                             className={`p-1.5 rounded-lg font-bold text-[11px] cursor-pointer ${
-                              prop.verified ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'
+                              prop.verified
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-100 text-gray-400'
                             }`}
                           >
                             {prop.verified ? 'Verified' : 'Unverified'}
@@ -633,7 +746,9 @@ export default function AdminPortalPage() {
                           <button
                             onClick={() => handleToggleFeatured(prop.id, prop.featured)}
                             className={`p-1.5 rounded-lg font-bold text-[11px] cursor-pointer ${
-                              prop.featured ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400'
+                              prop.featured
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-gray-100 text-gray-400'
                             }`}
                           >
                             {prop.featured ? 'Featured' : 'Standard'}
@@ -676,44 +791,224 @@ export default function AdminPortalPage() {
         </div>
       )}
 
-      {/* ================= TAB 2: REGISTERED USERS ================= */}
+      {/* ================= TAB 2: REGISTERED USERS (BUYERS & SELLERS) (Requirements 5 & 12) ================= */}
       {activeTab === 'USERS' && (
-        <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-4">User</th>
-                  <th className="py-3.5 px-4">Email</th>
-                  <th className="py-3.5 px-4">Role</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Properties</th>
-                  <th className="py-3.5 px-4">Joined Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 font-medium">
-                {usersList.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50/70">
-                    <td className="py-3 px-4 font-bold text-gray-900">{u.name || 'Bhumie User'}</td>
-                    <td className="py-3 px-4 text-gray-600">{u.email}</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 uppercase">
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700">
-                        OTP Verified
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-gray-800">{u._count?.properties || 0} Listed</td>
-                    <td className="py-3 px-4 text-gray-400">
-                      {new Date(u.createdAt).toLocaleDateString()}
-                    </td>
+        <div className="space-y-4">
+          {/* Privacy Access Banner */}
+          <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200/80 flex items-start gap-3">
+            <Lock className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-blue-900 leading-relaxed">
+              <strong>Admin Privacy Controls:</strong> Personal PAN and Aadhaar identity numbers are
+              automatically masked (<code className="font-mono">XXXX-XXXX-1234</code>,{' '}
+              <code className="font-mono">ABCDE****F</code>) in adherence to Indian data privacy
+              mandates. Review and verify seller requests to assign the trusted badge.
+            </div>
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-gray-100 shadow-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-400 uppercase mr-1">Account Type:</span>
+              {(['ALL', 'USER', 'OWNER', 'ADMIN'] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setUserRoleFilter(r)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    userRoleFilter === r
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {r === 'ALL'
+                    ? 'All Users'
+                    : r === 'USER'
+                    ? 'Buyers only'
+                    : r === 'OWNER'
+                    ? 'Sellers only'
+                    : 'Admins'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-400 uppercase mr-1">Verification:</span>
+              {(['ALL', 'PENDING', 'VERIFIED', 'UNVERIFIED'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setUserVerificationFilter(v)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    userVerificationFilter === v
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {v === 'PENDING' ? `Pending (${pendingVerificationCount})` : v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Users Table */}
+          <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3.5 px-4">User Profile</th>
+                    <th className="py-3.5 px-4">Contact Details</th>
+                    <th className="py-3.5 px-4">Account Type</th>
+                    <th className="py-3.5 px-4">Seller Identity Status</th>
+                    <th className="py-3.5 px-4">Listings</th>
+                    <th className="py-3.5 px-4">Joined Date</th>
+                    <th className="py-3.5 px-4 text-right">Verification Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100 font-medium">
+                  {filteredUsers.map((u) => {
+                    const isSeller = u.role === 'OWNER';
+                    const isBuyer = u.role === 'USER';
+                    const isVerifiedSeller = u.sellerVerified || u.verificationStatus === 'VERIFIED';
+                    const isPending = u.verificationStatus === 'PENDING';
+
+                    return (
+                      <tr key={u.id} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {u.avatar ? (
+                              <img
+                                src={u.avatar}
+                                alt={u.name || 'User'}
+                                className="w-10 h-10 rounded-xl object-cover border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-sm">
+                                {u.name ? u.name[0].toUpperCase() : u.email[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-gray-900">{u.name || 'Bhumie Member'}</div>
+                              <div className="text-[11px] text-gray-400 font-mono">ID: {u.id.slice(0, 8)}...</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="text-gray-800 font-medium">{u.email}</div>
+                          <div className="text-[11px] text-gray-500 font-mono">{u.phone || 'No phone'}</div>
+                        </td>
+
+                        {/* Account Type with switch option */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <select
+                            value={u.role}
+                            disabled={updatingUserId === u.id}
+                            onChange={(e) => handleRoleChange(u.id, e.target.value as any)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                              isSeller
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : isBuyer
+                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                : 'bg-purple-50 text-purple-800 border-purple-200'
+                            }`}
+                          >
+                            <option value="USER">Buyer (USER)</option>
+                            <option value="OWNER">Seller (OWNER)</option>
+                            <option value="ADMIN">Admin (ADMIN)</option>
+                          </select>
+                        </td>
+
+                        {/* Identity & Verification Status */}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {isVerifiedSeller ? (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                Verified Seller
+                              </span>
+                              {(u.panMasked || u.aadhaarMasked) && (
+                                <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                                  {u.panMasked && `PAN: ${u.panMasked}`}
+                                  {u.aadhaarMasked && ` • UID: ${u.aadhaarMasked}`}
+                                </div>
+                              )}
+                            </div>
+                          ) : isPending ? (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                Pending Review
+                              </span>
+                              {(u.panMasked || u.aadhaarMasked) && (
+                                <div className="text-[10px] text-amber-700 font-mono mt-0.5">
+                                  {u.panMasked && `PAN: ${u.panMasked}`}
+                                  {u.aadhaarMasked && ` • ${u.aadhaarMasked}`}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 text-gray-500">
+                              Unverified
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 font-bold text-gray-800 whitespace-nowrap">
+                          {u._count?.properties || 0} Listed
+                        </td>
+
+                        <td className="py-3 px-4 text-gray-400 whitespace-nowrap">
+                          {new Date(u.createdAt).toLocaleDateString()}
+                        </td>
+
+                        {/* Verification Action Buttons */}
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          {isPending ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                disabled={updatingUserId === u.id}
+                                onClick={() => handleVerifySeller(u.id, 'VERIFIED')}
+                                className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={updatingUserId === u.id}
+                                onClick={() => handleVerifySeller(u.id, 'REJECTED')}
+                                className="px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                <span>Reject</span>
+                              </button>
+                            </div>
+                          ) : isVerifiedSeller ? (
+                            <button
+                              type="button"
+                              disabled={updatingUserId === u.id}
+                              onClick={() => handleVerifySeller(u.id, 'REJECTED')}
+                              className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                            >
+                              Revoke Badge
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={updatingUserId === u.id}
+                              onClick={() => handleVerifySeller(u.id, 'VERIFIED')}
+                              className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                            >
+                              Verify Seller
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -782,7 +1077,6 @@ export default function AdminPortalPage() {
           </div>
         </div>
       )}
-      </div>
 
       {/* ================= CREATE / EDIT PROPERTY MODAL ================= */}
       {isModalOpen && (
@@ -824,9 +1118,13 @@ export default function AdminPortalPage() {
 
               {/* Title & Basic Specs */}
               <div className="space-y-4">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Basic Information</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">
+                  Basic Information
+                </h4>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Property Title *</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                    Property Title *
+                  </label>
                   <input
                     type="text"
                     required
@@ -839,10 +1137,14 @@ export default function AdminPortalPage() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Purpose</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Purpose
+                    </label>
                     <select
                       value={propertyForm.purpose}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, purpose: e.target.value as any })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, purpose: e.target.value as any })
+                      }
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-bold bg-white"
                     >
                       <option value="RENT">RENT</option>
@@ -854,7 +1156,9 @@ export default function AdminPortalPage() {
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Type</label>
                     <select
                       value={propertyForm.propertyType}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, propertyType: e.target.value })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, propertyType: e.target.value })
+                      }
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-bold bg-white"
                     >
                       <option value="Flat">Flat</option>
@@ -882,10 +1186,14 @@ export default function AdminPortalPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Furnishing</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Furnishing
+                    </label>
                     <select
                       value={propertyForm.furnishing}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, furnishing: e.target.value })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, furnishing: e.target.value })
+                      }
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-bold bg-white"
                     >
                       <option value="Furnished">Furnished</option>
@@ -917,58 +1225,155 @@ export default function AdminPortalPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Carpet Area (sq.ft)</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Carpet Area (sq.ft)
+                    </label>
                     <input
                       type="number"
                       value={propertyForm.carpetArea}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, carpetArea: e.target.value })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, carpetArea: e.target.value })
+                      }
                       placeholder="1050"
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Bedrooms</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Bedrooms
+                    </label>
                     <input
                       type="number"
                       value={propertyForm.bedrooms}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, bedrooms: e.target.value })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, bedrooms: e.target.value })
+                      }
                       placeholder="2"
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Bathrooms</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Bathrooms
+                    </label>
                     <input
                       type="number"
                       value={propertyForm.bathrooms}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, bathrooms: e.target.value })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, bathrooms: e.target.value })
+                      }
                       placeholder="2"
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
                     />
+                  </div>
+                </div>
+
+                {/* Additional Specs: Floor, Total Floors, Balconies, Lift, Road Width */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Floor Level
+                    </label>
+                    <input
+                      type="text"
+                      value={propertyForm.floor}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, floor: e.target.value })
+                      }
+                      placeholder="e.g. 2nd Floor"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Total Floors
+                    </label>
+                    <input
+                      type="number"
+                      value={propertyForm.totalFloors}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, totalFloors: e.target.value })
+                      }
+                      placeholder="e.g. 14"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Balconies
+                    </label>
+                    <input
+                      type="number"
+                      value={propertyForm.balconies}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, balconies: e.target.value })
+                      }
+                      placeholder="e.g. 2"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Road Width
+                    </label>
+                    <input
+                      type="text"
+                      value={propertyForm.roadWidth}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, roadWidth: e.target.value })
+                      }
+                      placeholder="e.g. 40 ft"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
+                    />
+                  </div>
+
+                  <div className="flex items-center pt-5">
+                    <label className="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={propertyForm.hasLift}
+                        onChange={(e) =>
+                          setPropertyForm({ ...propertyForm, hasLift: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Lift Available</span>
+                    </label>
                   </div>
                 </div>
               </div>
 
               {/* Location */}
               <div className="space-y-3">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Location & Address</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">
+                  Location & Address
+                </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Locality / Sector *</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Locality / Sector *
+                    </label>
                     <input
                       type="text"
                       required
                       value={propertyForm.locality}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, locality: e.target.value })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, locality: e.target.value })
+                      }
                       placeholder="Sector 62, Saket, Indirapuram"
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">City *</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      City *
+                    </label>
                     <input
                       type="text"
                       required
@@ -981,11 +1386,15 @@ export default function AdminPortalPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Full Address</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                    Full Address
+                  </label>
                   <input
                     type="text"
                     value={propertyForm.address}
-                    onChange={(e) => setPropertyForm({ ...propertyForm, address: e.target.value })}
+                    onChange={(e) =>
+                      setPropertyForm({ ...propertyForm, address: e.target.value })
+                    }
                     placeholder="Tower 4, Flat 402, XYZ Society, Sector 62"
                     className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium"
                   />
@@ -995,7 +1404,9 @@ export default function AdminPortalPage() {
               {/* Cloudinary Photos Upload */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Property Photos (Cloudinary)</h4>
+                  <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">
+                    Property Photos (Cloudinary)
+                  </h4>
                   <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                     Auto-Optimized (WebP / AVIF)
                   </span>
@@ -1018,9 +1429,13 @@ export default function AdminPortalPage() {
                       <Upload className="w-6 h-6 text-blue-600 mb-1 group-hover:scale-110 transition-transform" />
                     )}
                     <span className="text-xs font-bold text-gray-800">
-                      {uploadingModalImages ? 'Uploading to Cloudinary...' : 'Click to Upload Photos to Cloudinary'}
+                      {uploadingModalImages
+                        ? 'Uploading to Cloudinary...'
+                        : 'Click to Upload Photos to Cloudinary'}
                     </span>
-                    <span className="text-[10px] text-gray-400 mt-0.5">Instant CDN hosting & automatic compression</span>
+                    <span className="text-[10px] text-gray-400 mt-0.5">
+                      Instant CDN hosting & automatic compression
+                    </span>
                   </div>
                 </div>
 
@@ -1028,7 +1443,10 @@ export default function AdminPortalPage() {
                 {propertyForm.images.length > 0 && (
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                     {propertyForm.images.map((img, idx) => (
-                      <div key={idx} className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 group border border-gray-200">
+                      <div
+                        key={idx}
+                        className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 group border border-gray-200"
+                      >
                         <img src={img} alt="" className="w-full h-full object-cover" />
                         <button
                           type="button"
@@ -1045,13 +1463,19 @@ export default function AdminPortalPage() {
 
               {/* Status & Visibility Flags */}
               <div className="space-y-3 pt-2 border-t border-gray-100">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Admin Status & Toggles</h4>
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">
+                  Admin Status & Toggles
+                </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">Listing Status</label>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1.5">
+                      Listing Status
+                    </label>
                     <select
                       value={propertyForm.status}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, status: e.target.value })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, status: e.target.value })
+                      }
                       className="w-full px-3 py-2 rounded-xl border border-gray-200 text-xs font-bold bg-white"
                     >
                       <option value="ACTIVE">ACTIVE</option>
@@ -1066,10 +1490,15 @@ export default function AdminPortalPage() {
                       type="checkbox"
                       id="modalVerified"
                       checked={propertyForm.verified}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, verified: e.target.checked })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, verified: e.target.checked })
+                      }
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
                     />
-                    <label htmlFor="modalVerified" className="text-xs font-bold text-gray-800 cursor-pointer">
+                    <label
+                      htmlFor="modalVerified"
+                      className="text-xs font-bold text-gray-800 cursor-pointer"
+                    >
                       Verified Listing (Badge)
                     </label>
                   </div>
@@ -1079,10 +1508,15 @@ export default function AdminPortalPage() {
                       type="checkbox"
                       id="modalFeatured"
                       checked={propertyForm.featured}
-                      onChange={(e) => setPropertyForm({ ...propertyForm, featured: e.target.checked })}
+                      onChange={(e) =>
+                        setPropertyForm({ ...propertyForm, featured: e.target.checked })
+                      }
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
                     />
-                    <label htmlFor="modalFeatured" className="text-xs font-bold text-gray-800 cursor-pointer">
+                    <label
+                      htmlFor="modalFeatured"
+                      className="text-xs font-bold text-gray-800 cursor-pointer"
+                    >
                       Featured Property (Highlight)
                     </label>
                   </div>
@@ -1123,4 +1557,3 @@ export default function AdminPortalPage() {
     </div>
   );
 }
-

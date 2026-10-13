@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import MapPinPickerModal from '@/components/MapPinPickerModal';
 import {
   Check,
   ChevronRight,
@@ -23,6 +24,10 @@ import {
   Car,
   ShieldCheck,
   CheckCircle2,
+  MoveLeft,
+  MoveRight,
+  Star,
+  Compass,
 } from 'lucide-react';
 
 export default function PostPropertyPage() {
@@ -33,6 +38,7 @@ export default function PostPropertyPage() {
   const totalSteps = 6;
   const [submitting, setSubmitting] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -57,10 +63,10 @@ export default function PostPropertyPage() {
     city: 'Noida',
     state: 'Uttar Pradesh',
     pincode: '201309',
-    latitude: 28.6280,
+    latitude: 28.628,
     longitude: 77.3649,
 
-    // Step 4: Rent & Price Details
+    // Step 4: Rent & Price & Building Specs
     monthlyRent: '18000',
     securityDeposit: '36000',
     maintenance: '1500',
@@ -68,6 +74,10 @@ export default function PostPropertyPage() {
     bedrooms: '2',
     bathrooms: '2',
     floor: '2nd Floor',
+    totalFloors: '14',
+    balconies: '2',
+    hasLift: true,
+    roadWidth: '40 ft',
     ageOfProperty: '2-5 Years',
     availableFrom: 'Immediate',
 
@@ -142,6 +152,7 @@ export default function PostPropertyPage() {
       for (let i = 0; i < files.length; i++) {
         data.append('files', files[i]);
       }
+      data.append('folder', 'bhumie_properties');
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -175,6 +186,7 @@ export default function PostPropertyPage() {
     }
   };
 
+  // Image Reordering & Management (Requirement 13)
   const removeImage = (index: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -182,25 +194,52 @@ export default function PostPropertyPage() {
     }));
   };
 
+  const moveImage = (index: number, direction: 'left' | 'right') => {
+    setFormData((prev) => {
+      const newImages = [...prev.images];
+      const targetIndex = direction === 'left' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= newImages.length) return prev;
+      const temp = newImages[index];
+      newImages[index] = newImages[targetIndex];
+      newImages[targetIndex] = temp;
+      return { ...prev, images: newImages };
+    });
+  };
+
+  const setAsCover = (index: number) => {
+    if (index === 0) return;
+    setFormData((prev) => {
+      const newImages = [...prev.images];
+      const [selected] = newImages.splice(index, 1);
+      newImages.unshift(selected);
+      return { ...prev, images: newImages };
+    });
+  };
+
+  // Location GPS Detection (Requirement 3)
   const handleUseCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          handleInputChange('latitude', pos.coords.latitude);
-          handleInputChange('longitude', pos.coords.longitude);
-          alert('Location updated successfully using GPS coordinates!');
-        },
-        () => {
-          alert('Could not fetch location. Please ensure location permissions are granted.');
-        }
-      );
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
     }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        handleInputChange('latitude', pos.coords.latitude);
+        handleInputChange('longitude', pos.coords.longitude);
+        alert('Coordinates updated to your current location!');
+      },
+      (err) => {
+        alert('Could not fetch GPS coordinates. Please ensure location permissions are granted.');
+      },
+      { timeout: 7000 }
+    );
   };
 
   const nextStep = () => {
     if (currentStep === 1 && !formData.title.trim()) {
-      // Auto-generate title if empty
-      const autoTitle = `${formData.bhk} ${formData.propertyType} for ${formData.purpose === 'RENT' ? 'Rent' : 'Sale'} in ${formData.locality}`;
+      const autoTitle = `${formData.bhk} ${formData.propertyType} for ${
+        formData.purpose === 'RENT' ? 'Rent' : 'Sale'
+      } in ${formData.locality}`;
       handleInputChange('title', autoTitle);
     }
     setCurrentStep((prev) => Math.min(totalSteps, prev + 1));
@@ -240,9 +279,9 @@ export default function PostPropertyPage() {
 
   const stepLabels = [
     '1. Basic Details',
-    '2. Photos & Video',
-    '3. Location',
-    '4. Rent & Price',
+    '2. Photos & Media',
+    '3. Location & Map Pin',
+    '4. Price & Specs',
     '5. Amenities',
     '6. Review & Submit',
   ];
@@ -251,13 +290,13 @@ export default function PostPropertyPage() {
     <div className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
       {/* Top Header */}
       <div className="mb-8 text-center sm:text-left">
-        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Add Property</h1>
+        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Add Property Listing</h1>
         <p className="text-xs sm:text-sm text-gray-500 font-medium mt-1">
           Complete the 6 simple steps to post your listing on Bhumie
         </p>
       </div>
 
-      {/* 6-Step Visual Indicator matching Screenshot 4/5 */}
+      {/* 6-Step Visual Indicator */}
       <div className="mb-8">
         <div className="flex items-center justify-between relative">
           <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-200 -translate-y-1/2 z-0" />
@@ -294,12 +333,14 @@ export default function PostPropertyPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-black text-gray-900 mb-1">Basic Details</h2>
-              <p className="text-xs text-gray-500">Let's start with some basic information</p>
+              <p className="text-xs text-gray-500">Let's start with basic configuration</p>
             </div>
 
             {/* Property Type */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Property Type</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                Property Type
+              </label>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {propertyTypes.map((t) => (
                   <button
@@ -341,19 +382,23 @@ export default function PostPropertyPage() {
 
             {/* Property Title */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Property Title</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                Property Title
+              </label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
-                placeholder="e.g. 2 BHK Flat for Rent in Sector 62"
+                placeholder="e.g. 2 BHK Luxury Flat for Rent in Sector 62"
                 className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
 
             {/* BHK Selection */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">BHK Configuration</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                BHK Configuration
+              </label>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {bhkOptions.map((b) => (
                   <button
@@ -374,7 +419,9 @@ export default function PostPropertyPage() {
 
             {/* Carpet Area */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Carpet Area (sq.ft)</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                Carpet Area (sq.ft)
+              </label>
               <input
                 type="number"
                 value={formData.carpetArea}
@@ -386,7 +433,9 @@ export default function PostPropertyPage() {
 
             {/* Furnishing */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Furnishing</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                Furnishing
+              </label>
               <div className="grid grid-cols-3 gap-2">
                 {furnishingOptions.map((f) => (
                   <button
@@ -407,12 +456,15 @@ export default function PostPropertyPage() {
           </div>
         )}
 
-        {/* ================= STEP 2: PHOTOS & VIDEO ================= */}
+        {/* ================= STEP 2: PHOTOS & MEDIA (Requirement 13) ================= */}
         {currentStep === 2 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-black text-gray-900 mb-1">Add Photos & Videos</h2>
-              <p className="text-xs text-gray-500">Add clear photos to get more enquiries (up to 15)</p>
+              <h2 className="text-xl font-black text-gray-900 mb-1">Add Photos & Media</h2>
+              <p className="text-xs text-gray-500">
+                Uploaded images are automatically compressed, optimized and served via high-speed CDN.
+                You can reorder, set primary cover, or remove images before publishing.
+              </p>
             </div>
 
             {/* Cloudinary File Upload Dropzone */}
@@ -434,10 +486,12 @@ export default function PostPropertyPage() {
                   )}
                 </div>
                 <h4 className="text-sm font-bold text-gray-900 mb-1">
-                  {uploadingImages ? 'Uploading & Optimizing with Cloudinary...' : 'Upload Photos from Device'}
+                  {uploadingImages
+                    ? 'Uploading & Optimizing with Cloudinary...'
+                    : 'Upload Photos from Device'}
                 </h4>
                 <p className="text-xs text-gray-500 mb-2">
-                  Drag and drop, or click to browse (JPG, PNG, WebP)
+                  Drag and drop or click to browse (Auto WebP / AVIF compression)
                 </p>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold">
                   <Sparkles className="w-3 h-3" />
@@ -452,23 +506,81 @@ export default function PostPropertyPage() {
               </div>
             )}
 
-            {/* Image Preview Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {formData.images.map((img, idx) => (
-                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 group border border-gray-200 shadow-xs">
-                  <img src={img} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(idx)}
-                    className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+            {/* Image Preview & Reorder Grid (Requirement 13) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-gray-700 uppercase">
+                  Uploaded Photos ({formData.images.length})
+                </label>
+                <span className="text-[11px] text-gray-400">
+                  First photo is the Main Cover Listing Photo
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {formData.images.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="relative rounded-2xl overflow-hidden bg-gray-100 group border border-gray-200 shadow-xs flex flex-col"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="absolute bottom-1.5 left-2 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded-md font-bold">
-                    {img.includes('cloudinary') ? 'Cloudinary' : `Photo ${idx + 1}`}
-                  </span>
-                </div>
-              ))}
+                    <div className="relative aspect-video">
+                      <img
+                        src={img}
+                        alt={`Upload ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      {idx === 0 && (
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-black flex items-center gap-1 shadow-sm">
+                          <Star className="w-3 h-3 fill-white" />
+                          Cover Photo
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                        title="Delete photo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Image Action Toolbar: Reorder & Set as Cover */}
+                    <div className="p-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => moveImage(idx, 'left')}
+                          className="p-1 rounded-lg hover:bg-gray-200 text-gray-600 disabled:opacity-30 cursor-pointer"
+                          title="Move left"
+                        >
+                          <MoveLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === formData.images.length - 1}
+                          onClick={() => moveImage(idx, 'right')}
+                          className="p-1 rounded-lg hover:bg-gray-200 text-gray-600 disabled:opacity-30 cursor-pointer"
+                          title="Move right"
+                        >
+                          <MoveRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {idx !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAsCover(idx)}
+                          className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Set as Cover
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Alternative: Add Image URL manually */}
@@ -496,7 +608,9 @@ export default function PostPropertyPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Video Link (Optional)</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                Video Link (Optional)
+              </label>
               <input
                 type="url"
                 value={formData.videoUrl}
@@ -508,16 +622,20 @@ export default function PostPropertyPage() {
           </div>
         )}
 
-        {/* ================= STEP 3: LOCATION ================= */}
+        {/* ================= STEP 3: LOCATION & MAP PIN (Requirements 3 & 4) ================= */}
         {currentStep === 3 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-black text-gray-900 mb-1">Property Location</h2>
-              <p className="text-xs text-gray-500">Set the exact location of your property</p>
+              <h2 className="text-xl font-black text-gray-900 mb-1">Property Location & Map Pin</h2>
+              <p className="text-xs text-gray-500">
+                Provide the address and pinpoint the exact coordinates on the interactive map.
+              </p>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Full Address</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                Full Address
+              </label>
               <input
                 type="text"
                 value={formData.address}
@@ -529,7 +647,9 @@ export default function PostPropertyPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Locality / Sector</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Locality / Sector
+                </label>
                 <input
                   type="text"
                   value={formData.locality}
@@ -551,34 +671,68 @@ export default function PostPropertyPage() {
               </div>
             </div>
 
-            {/* GPS Coordinates & Current Location matching screenshot */}
-            <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/60 flex items-center justify-between gap-4">
+            {/* GPS Coordinates & Interactive Map Pin Picker */}
+            <div className="p-5 rounded-2xl bg-blue-50/60 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-blue-600 shrink-0" />
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
                 <div className="text-xs">
-                  <span className="font-bold text-gray-900 block">Pinpoint Coordinates</span>
+                  <span className="font-bold text-gray-900 block text-sm">
+                    Exact Map Pin Coordinates
+                  </span>
                   <span className="text-gray-500 font-mono">
-                    Lat: {formData.latitude.toFixed(4)}, Lng: {formData.longitude.toFixed(4)}
+                    Lat: {formData.latitude.toFixed(5)}, Lng: {formData.longitude.toFixed(5)}
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleUseCurrentLocation}
-                className="px-3.5 py-2 bg-white text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
-              >
-                Use My Current Location
-              </button>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  className="flex-1 sm:flex-none px-3.5 py-2.5 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                >
+                  <Compass className="w-4 h-4 text-blue-600" />
+                  <span>Use My Location</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMapPickerOpen(true)}
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5"
+                >
+                  <MapPin className="w-4 h-4" />
+                  <span>Pin on Map</span>
+                </button>
+              </div>
             </div>
+
+            {/* Map Pin Picker Modal */}
+            {mapPickerOpen && (
+              <MapPinPickerModal
+                initialLat={formData.latitude}
+                initialLng={formData.longitude}
+                onSelect={(lat, lng) => {
+                  handleInputChange('latitude', lat);
+                  handleInputChange('longitude', lng);
+                }}
+                onClose={() => setMapPickerOpen(false)}
+              />
+            )}
           </div>
         )}
 
-        {/* ================= STEP 4: RENT & PRICE ================= */}
+        {/* ================= STEP 4: PRICE & SPECS (Requirements 7, 8, 9, 11) ================= */}
         {currentStep === 4 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-black text-gray-900 mb-1">Rent & Price Details</h2>
-              <p className="text-xs text-gray-500">Set your rent, deposit, and maintenance charges</p>
+              <h2 className="text-xl font-black text-gray-900 mb-1">
+                Price & Architectural Specifications
+              </h2>
+              <p className="text-xs text-gray-500">
+                Enter pricing, floor details, balconies, elevator, and road width
+              </p>
             </div>
 
             <div>
@@ -596,7 +750,9 @@ export default function PostPropertyPage() {
 
             {formData.purpose === 'RENT' && (
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Security Deposit (₹)</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Security Deposit (₹)
+                </label>
                 <input
                   type="number"
                   value={formData.securityDeposit}
@@ -607,48 +763,127 @@ export default function PostPropertyPage() {
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Maintenance (Monthly) (Optional)</label>
-              <input
-                type="number"
-                value={formData.maintenance}
-                onChange={(e) => handleInputChange('maintenance', e.target.value)}
-                placeholder="1500"
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Other Charges (Optional)</label>
-              <input
-                type="text"
-                value={formData.otherCharges}
-                onChange={(e) => handleInputChange('otherCharges', e.target.value)}
-                placeholder="Parking, Electricity, Water etc."
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Floor</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Maintenance (Monthly) (Optional)
+                </label>
                 <input
-                  type="text"
-                  value={formData.floor}
-                  onChange={(e) => handleInputChange('floor', e.target.value)}
-                  placeholder="2nd Floor"
+                  type="number"
+                  value={formData.maintenance}
+                  onChange={(e) => handleInputChange('maintenance', e.target.value)}
+                  placeholder="1500"
                   className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">Age of Property</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Other Charges (Optional)
+                </label>
                 <input
                   type="text"
-                  value={formData.ageOfProperty}
-                  onChange={(e) => handleInputChange('ageOfProperty', e.target.value)}
-                  placeholder="2-5 Years"
+                  value={formData.otherCharges}
+                  onChange={(e) => handleInputChange('otherCharges', e.target.value)}
+                  placeholder="Electricity, Water etc."
                   className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
+              </div>
+            </div>
+
+            {/* Floor Details & Total Building Floors (Requirement 7) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Property Floor Level
+                </label>
+                <input
+                  type="text"
+                  value={formData.floor}
+                  onChange={(e) => handleInputChange('floor', e.target.value)}
+                  placeholder="e.g. Ground, 2nd Floor, 5th Floor"
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Total Floors in Building
+                </label>
+                <input
+                  type="number"
+                  value={formData.totalFloors}
+                  onChange={(e) => handleInputChange('totalFloors', e.target.value)}
+                  placeholder="e.g. 4, 14, 25"
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Balcony Count (Requirement 8) & Road Width (Requirement 11) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Balconies Count
+                </label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {['0', '1', '2', '3', '4+'].map((bCount) => (
+                    <button
+                      key={bCount}
+                      type="button"
+                      onClick={() => handleInputChange('balconies', bCount.replace('+', ''))}
+                      className={`py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        formData.balconies === bCount.replace('+', '')
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {bCount}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                  Road Width (Facing Road)
+                </label>
+                <input
+                  type="text"
+                  value={formData.roadWidth}
+                  onChange={(e) => handleInputChange('roadWidth', e.target.value)}
+                  placeholder="e.g. 30 ft, 40 ft, 12 metres"
+                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Lift Availability (Requirement 9) */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-2">
+                Lift / Elevator Availability in Building
+              </label>
+              <div className="grid grid-cols-2 gap-3 max-w-xs">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('hasLift', true)}
+                  className={`py-3 px-4 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    formData.hasLift
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  ✓ Lift Available
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('hasLift', false)}
+                  className={`py-3 px-4 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    !formData.hasLift
+                      ? 'bg-gray-700 text-white border-gray-700 shadow-xs'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  No Lift
+                </button>
               </div>
             </div>
           </div>
@@ -677,9 +912,7 @@ export default function PostPropertyPage() {
                     }`}
                   >
                     <CheckCircle2
-                      className={`w-4 h-4 shrink-0 ${
-                        selected ? 'text-white' : 'text-gray-400'
-                      }`}
+                      className={`w-4 h-4 shrink-0 ${selected ? 'text-white' : 'text-gray-400'}`}
                     />
                     <span className="truncate">{amenity}</span>
                   </button>
@@ -695,7 +928,7 @@ export default function PostPropertyPage() {
                 rows={4}
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Highlight any additional details, neighborhood advantages, metro proximity..."
+                placeholder="Highlight any additional details, neighborhood advantages, metro proximity, road width, power backup..."
                 className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
@@ -707,68 +940,65 @@ export default function PostPropertyPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-black text-gray-900 mb-1">Review & Submit</h2>
-              <p className="text-xs text-gray-500">Please review your property details before submitting</p>
+              <p className="text-xs text-gray-500">
+                Please review your property details before submitting
+              </p>
             </div>
 
-            {/* Summary Card matching screenshot */}
+            {/* Summary Card */}
             <div className="bg-gray-50 rounded-3xl p-5 sm:p-6 border border-gray-200 flex flex-col sm:flex-row gap-5">
               <img
-                src={formData.images[0] || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=500&q=80'}
+                src={
+                  formData.images[0] ||
+                  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=500&q=80'
+                }
                 alt="Preview"
                 className="w-full sm:w-44 h-36 rounded-2xl object-cover shrink-0"
               />
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-lg bg-blue-100 text-blue-700 text-xs font-black">
-                    {formData.purpose === 'RENT' ? 'For Rent' : 'For Sale'}
+                  <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-bold uppercase">
+                    {formData.purpose}
                   </span>
-                  <span className="text-xs text-gray-500">{formData.propertyType}</span>
-                </div>
-
-                <h3 className="text-lg font-black text-gray-900">{formData.title}</h3>
-                <p className="text-xs text-gray-500">{formData.locality}, {formData.city}</p>
-
-                <div className="flex items-baseline gap-2 pt-1">
-                  <span className="text-xl font-black text-blue-600">
-                    ₹{parseInt(formData.monthlyRent || '0').toLocaleString('en-IN')}
-                    {formData.purpose === 'RENT' ? ' /month' : ''}
+                  <span className="px-2 py-0.5 rounded-md bg-gray-200 text-gray-700 text-[10px] font-bold uppercase">
+                    {formData.propertyType}
                   </span>
-                  {formData.securityDeposit && (
-                    <span className="text-xs text-gray-500 font-semibold">
-                      (Deposit: ₹{parseInt(formData.securityDeposit).toLocaleString('en-IN')})
+                  {formData.hasLift && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                      Lift Available
                     </span>
                   )}
                 </div>
-
-                <div className="flex items-center gap-3 text-xs text-gray-600 font-bold pt-1">
-                  <span>{formData.bhk}</span>
-                  <span>•</span>
-                  <span>{formData.carpetArea} sq.ft</span>
-                  <span>•</span>
-                  <span>{formData.furnishing}</span>
+                <h3 className="text-base font-black text-gray-900">{formData.title}</h3>
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-red-500" />
+                  {formData.locality}, {formData.city} (Lat: {formData.latitude.toFixed(4)}, Lng:{' '}
+                  {formData.longitude.toFixed(4)})
+                </p>
+                <div className="text-lg font-black text-blue-600">
+                  ₹{Number(formData.monthlyRent).toLocaleString('en-IN')}{' '}
+                  {formData.purpose === 'RENT' ? '/month' : ''}
+                </div>
+                <div className="flex flex-wrap gap-3 text-xs text-gray-600 pt-1">
+                  <span>Floor: {formData.floor} {formData.totalFloors ? `(${formData.totalFloors} total)` : ''}</span>
+                  <span>Balconies: {formData.balconies}</span>
+                  <span>Road: {formData.roadWidth}</span>
                 </div>
               </div>
-            </div>
-
-            <div className="text-xs text-gray-500 bg-emerald-50 text-emerald-800 p-4 rounded-2xl border border-emerald-200 flex items-center gap-2.5">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>
-                Your property will be live instantly in Bhumie search results and owner dashboard.
-              </span>
             </div>
           </div>
         )}
 
         {/* Wizard Navigation Buttons */}
-        <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between pt-8 mt-8 border-t border-gray-100">
           {currentStep > 1 ? (
             <button
               type="button"
               onClick={prevStep}
-              className="px-5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-50 flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-3 rounded-2xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
-              Back
+              <span>Back</span>
             </button>
           ) : (
             <div />
@@ -778,27 +1008,27 @@ export default function PostPropertyPage() {
             <button
               type="button"
               onClick={nextStep}
-              className="px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-lg shadow-blue-500/20 flex items-center gap-2 cursor-pointer transition-all hover:scale-102"
+              className="px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
             >
-              Next Step
+              <span>Continue</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button
               type="button"
-              onClick={handleSubmit}
               disabled={submitting}
-              className="px-8 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black shadow-lg shadow-emerald-600/30 flex items-center gap-2 cursor-pointer transition-all hover:scale-102 disabled:opacity-50"
+              onClick={handleSubmit}
+              className="px-8 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer disabled:opacity-50"
             >
               {submitting ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Submitting Property...
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Submitting Listing...</span>
                 </>
               ) : (
                 <>
-                  <Check className="w-5 h-5" />
-                  Submit Property
+                  <Check className="w-4 h-4" />
+                  <span>Publish Property Listing</span>
                 </>
               )}
             </button>
@@ -808,4 +1038,3 @@ export default function PostPropertyPage() {
     </div>
   );
 }
-

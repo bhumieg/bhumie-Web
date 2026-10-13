@@ -16,9 +16,15 @@ export async function GET(req: NextRequest) {
     const purpose = searchParams.get('purpose') || ''; // RENT or SALE
     const bhk = searchParams.get('bhk') || '';
     const furnishing = searchParams.get('furnishing') || '';
+    const floor = searchParams.get('floor') || '';
+    const balconies = searchParams.get('balconies') ? parseInt(searchParams.get('balconies')!) : undefined;
+    const hasLift = searchParams.get('hasLift') === 'true';
     const minPrice = searchParams.get('minPrice') ? parseFloat(searchParams.get('minPrice')!) : undefined;
     const maxPrice = searchParams.get('maxPrice') ? parseFloat(searchParams.get('maxPrice')!) : undefined;
     const featured = searchParams.get('featured') === 'true';
+    const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : undefined;
+    const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : undefined;
+    const radius = searchParams.get('radius') ? parseFloat(searchParams.get('radius')!) : 35; // 35 km default radius
     const sortBy = searchParams.get('sortBy') || 'newest';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')));
@@ -27,6 +33,13 @@ export async function GET(req: NextRequest) {
     const where: any = {
       status: 'ACTIVE',
     };
+
+    if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+      const latDelta = radius / 111;
+      const lngDelta = radius / (111 * Math.cos((lat * Math.PI) / 180));
+      where.latitude = { gte: lat - latDelta, lte: lat + latDelta };
+      where.longitude = { gte: lng - lngDelta, lte: lng + lngDelta };
+    }
 
     if (city) {
       where.city = { contains: city, mode: 'insensitive' };
@@ -50,6 +63,26 @@ export async function GET(req: NextRequest) {
 
     if (furnishing && furnishing !== 'All') {
       where.furnishing = furnishing;
+    }
+
+    if (floor && floor !== 'All') {
+      if (floor.toLowerCase().includes('ground')) {
+        where.floor = { contains: 'Ground', mode: 'insensitive' };
+      } else {
+        where.floor = { contains: floor, mode: 'insensitive' };
+      }
+    }
+
+    if (balconies !== undefined && balconies > 0) {
+      where.balconies = { gte: balconies };
+    }
+
+    if (hasLift) {
+      where.OR = [
+        ...(where.OR || []),
+        { hasLift: true },
+        { amenities: { has: 'Lift' } },
+      ];
     }
 
     if (featured) {
@@ -132,6 +165,9 @@ export async function POST(req: NextRequest) {
       bathrooms = 2,
       floor,
       totalFloors,
+      balconies = 0,
+      hasLift = false,
+      roadWidth,
       availableFrom,
       ageOfProperty,
       address,
@@ -188,6 +224,9 @@ export async function POST(req: NextRequest) {
         bathrooms: parseInt(bathrooms) || 1,
         floor: floor || '2nd Floor',
         totalFloors: totalFloors || null,
+        balconies: balconies !== undefined ? parseInt(balconies) : 0,
+        hasLift: Boolean(hasLift),
+        roadWidth: roadWidth?.trim() || null,
         availableFrom: availableFrom || 'Immediate',
         ageOfProperty: ageOfProperty || '0-1 Year',
         address: address || `${locality}, ${city}`,

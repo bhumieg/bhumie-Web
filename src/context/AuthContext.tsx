@@ -9,6 +9,9 @@ export interface User {
   phone?: string | null;
   role: 'USER' | 'OWNER' | 'ADMIN';
   isVerified: boolean;
+  avatar?: string | null;
+  sellerVerified?: boolean;
+  verificationStatus?: string;
 }
 
 interface AuthContextType {

@@ -292,8 +292,8 @@ export default function PropertyDetailsPage({
           </div>
         </div>
 
-        {/* 5 Quick Specs Pills (Bedrooms, Bathrooms, Sqft, Floor, Furnishing) */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-6 border-t border-gray-100">
+        {/* Quick Specs Pills */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 pt-6 border-t border-gray-100">
           <div className="bg-gray-50 rounded-2xl p-3.5 text-center border border-gray-100">
             <Bed className="w-5 h-5 text-blue-600 mx-auto mb-1" />
             <div className="text-xs text-gray-400 font-medium">Bedrooms</div>
@@ -314,11 +314,24 @@ export default function PropertyDetailsPage({
 
           <div className="bg-gray-50 rounded-2xl p-3.5 text-center border border-gray-100">
             <Layers className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-            <div className="text-xs text-gray-400 font-medium">Floor</div>
-            <div className="text-sm font-black text-gray-900">{property.floor || '2nd Floor'}</div>
+            <div className="text-xs text-gray-400 font-medium">Floor Level</div>
+            <div className="text-sm font-black text-gray-900">
+              {property.floor || '2nd Floor'}
+              {property.totalFloors ? ` / ${property.totalFloors}` : ''}
+            </div>
           </div>
 
-          <div className="bg-gray-50 rounded-2xl p-3.5 text-center border border-gray-100 col-span-2 sm:col-span-1">
+          <div className="bg-gray-50 rounded-2xl p-3.5 text-center border border-gray-100">
+            <Sparkles className="w-5 h-5 text-blue-600 mx-auto mb-1" />
+            <div className="text-xs text-gray-400 font-medium">Balconies</div>
+            <div className="text-sm font-black text-gray-900">
+              {property.balconies !== null && property.balconies !== undefined
+                ? `${property.balconies} Balcony`
+                : '1 Balcony'}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-3.5 text-center border border-gray-100">
             <Sofa className="w-5 h-5 text-blue-600 mx-auto mb-1" />
             <div className="text-xs text-gray-400 font-medium">Furnishing</div>
             <div className="text-sm font-black text-gray-900">{property.furnishing}</div>
@@ -328,7 +341,7 @@ export default function PropertyDetailsPage({
 
       {/* Property Details Section */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-xs mb-6">
-        <h3 className="text-lg font-black text-gray-900 mb-4">Property Details</h3>
+        <h3 className="text-lg font-black text-gray-900 mb-4">Property Specifications & Details</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
             <span className="text-gray-400 block font-medium">Property Type</span>
@@ -345,6 +358,32 @@ export default function PropertyDetailsPage({
           <div>
             <span className="text-gray-400 block font-medium">BHK Type</span>
             <span className="text-sm font-bold text-gray-900">{property.bhk}</span>
+          </div>
+          <div>
+            <span className="text-gray-400 block font-medium">Floor Details</span>
+            <span className="text-sm font-bold text-gray-900">
+              {property.floor || '2nd'} {property.totalFloors ? `(Total ${property.totalFloors} Floors)` : ''}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-400 block font-medium">Lift / Elevator</span>
+            <span className="text-sm font-bold text-gray-900">
+              {property.hasLift ? '✓ Lift Available' : 'No Lift'}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-400 block font-medium">Road Width</span>
+            <span className="text-sm font-bold text-gray-900">
+              {property.roadWidth ? property.roadWidth : 'Standard Colony Road'}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-400 block font-medium">Balcony Count</span>
+            <span className="text-sm font-bold text-gray-900">
+              {property.balconies !== null && property.balconies !== undefined
+                ? `${property.balconies} Balconies`
+                : '1 Balcony'}
+            </span>
           </div>
         </div>
 
@@ -378,15 +417,34 @@ export default function PropertyDetailsPage({
       {/* Owner Contact Card */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-xs mb-8 flex flex-col sm:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white font-black text-xl flex items-center justify-center shadow-md shadow-blue-500/20">
-            {property.ownerName ? property.ownerName[0] : 'O'}
-          </div>
+          {property.owner?.avatar ? (
+            <img
+              src={property.owner.avatar}
+              alt={property.ownerName || 'Owner'}
+              className="w-14 h-14 rounded-2xl object-cover border-2 border-blue-100 shadow-md"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white font-black text-xl flex items-center justify-center shadow-md shadow-blue-500/20">
+              {property.ownerName ? property.ownerName[0] : 'O'}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2">
-              <h4 className="font-black text-gray-900 text-base">{property.ownerName || 'Verified Owner'}</h4>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700">Verified Owner</span>
+              <h4 className="font-black text-gray-900 text-base">{property.ownerName || 'Property Owner'}</h4>
+              {(property.owner?.sellerVerified || property.owner?.verificationStatus === 'VERIFIED') ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 flex items-center gap-1 border border-emerald-200">
+                  <Shield className="w-3 h-3 text-emerald-600" />
+                  Verified Seller (PAN & Aadhaar)
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700">
+                  Direct Owner Listing
+                </span>
+              )}
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">Direct Owner Listing • No Middleman Commission</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Direct Owner Listing • Zero Brokerage & Instant Contact
+            </p>
           </div>
         </div>
 
