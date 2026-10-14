@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { compressAndResizeImage } from '@/lib/imageCompression';
 
 export default function ProfilePage() {
   const { user, loading: authLoading, openAuthModal, refreshUser } = useAuth();
@@ -81,16 +82,15 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setMsg({ type: 'error', text: 'Please select a valid image file.' });
-      return;
-    }
-
     try {
       setUploadingAvatar(true);
       setMsg(null);
+
+      // Compress avatar image on device (max 800x800)
+      const compressedFile = await compressAndResizeImage(file, 800, 800, 0.85);
+
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', compressedFile);
       formData.append('folder', 'bhumie_profiles');
 
       const uploadRes = await fetch('/api/upload', {
@@ -98,7 +98,14 @@ export default function ProfilePage() {
         body: formData,
       });
 
-      const uploadData = await uploadRes.json();
+      const rawText = await uploadRes.text();
+      let uploadData: any;
+      try {
+        uploadData = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Server error (${uploadRes.status}). Please try again.`);
+      }
+
       if (!uploadRes.ok || !uploadData.success) {
         throw new Error(uploadData.message || 'Avatar upload failed');
       }
@@ -120,6 +127,7 @@ export default function ProfilePage() {
       setMsg({ type: 'error', text: error.message || 'Failed to upload image' });
     } finally {
       setUploadingAvatar(false);
+      e.target.value = '';
     }
   };
 

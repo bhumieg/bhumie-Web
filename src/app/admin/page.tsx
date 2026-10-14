@@ -32,6 +32,7 @@ import {
   UserX,
   Lock,
 } from 'lucide-react';
+import { compressAndResizeImage } from '@/lib/imageCompression';
 
 export default function AdminPortalPage() {
   const { user, adminLogin, logout } = useAuth();
@@ -344,25 +345,36 @@ export default function AdminPortalPage() {
     setModalError(null);
 
     try {
-      const fd = new FormData();
       for (let i = 0; i < files.length; i++) {
-        fd.append('files', files[i]);
-      }
-      fd.append('folder', 'bhumie_properties');
+        const file = files[i];
+        const compressedFile = await compressAndResizeImage(file);
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: fd,
-      });
+        const fd = new FormData();
+        fd.append('file', compressedFile);
+        fd.append('folder', 'bhumie/properties');
 
-      const result = await res.json();
-      if (result.success && result.urls) {
-        setPropertyForm((prev) => ({
-          ...prev,
-          images: [...prev.images, ...result.urls],
-        }));
-      } else {
-        setModalError(result.message || 'Image upload failed');
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: fd,
+        });
+
+        const rawText = await res.text();
+        let result: any;
+        try {
+          result = JSON.parse(rawText);
+        } catch {
+          throw new Error(`Upload error (${res.status}). Server returned unexpected response.`);
+        }
+
+        if (result.success && (result.url || (result.urls && result.urls[0]))) {
+          const uploadedUrl = result.url || result.urls[0];
+          setPropertyForm((prev) => ({
+            ...prev,
+            images: [...prev.images, uploadedUrl],
+          }));
+        } else {
+          throw new Error(result.message || `Failed to upload image`);
+        }
       }
     } catch (err: any) {
       setModalError(err.message || 'Error uploading images');

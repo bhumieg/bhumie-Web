@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import MapPinPickerModal from '@/components/MapPinPickerModal';
+import { compressAndResizeImage } from '@/lib/imageCompression';
 import {
   Check,
   ChevronRight,
@@ -138,6 +139,7 @@ export default function PostPropertyPage() {
   };
 
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,32 +148,48 @@ export default function PostPropertyPage() {
 
     setUploadingImages(true);
     setUploadError(null);
+    setUploadProgressText(`Preparing ${files.length} photo${files.length > 1 ? 's' : ''}...`);
 
     try {
-      const data = new FormData();
       for (let i = 0; i < files.length; i++) {
-        data.append('files', files[i]);
-      }
-      data.append('folder', 'bhumie_properties');
+        const file = files[i];
+        setUploadProgressText(`Compressing & uploading photo ${i + 1} of ${files.length}...`);
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: data,
-      });
+        // Client-side compression: converts heavy 10MB camera photo to clean ~250KB JPEG
+        const compressedFile = await compressAndResizeImage(file);
 
-      const result = await res.json();
-      if (result.success && result.urls) {
-        setFormData((prev) => ({
-          ...prev,
-          images: [...prev.images, ...result.urls],
-        }));
-      } else {
-        setUploadError(result.message || 'Image upload failed');
+        const data = new FormData();
+        data.append('file', compressedFile);
+        data.append('folder', 'bhumie/properties');
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: data,
+        });
+
+        const rawText = await res.text();
+        let result: any;
+        try {
+          result = JSON.parse(rawText);
+        } catch {
+          throw new Error(`Upload failed (${res.status}): Server returned unexpected response. Please try again.`);
+        }
+
+        if (result.success && (result.url || (result.urls && result.urls[0]))) {
+          const uploadedUrl = result.url || result.urls[0];
+          setFormData((prev) => ({
+            ...prev,
+            images: [...prev.images, uploadedUrl],
+          }));
+        } else {
+          throw new Error(result.message || `Failed to upload ${file.name}`);
+        }
       }
     } catch (err: any) {
       setUploadError(err.message || 'Error uploading images');
     } finally {
       setUploadingImages(false);
+      setUploadProgressText('');
       e.target.value = '';
     }
   };
@@ -487,7 +505,7 @@ export default function PostPropertyPage() {
                 </div>
                 <h4 className="text-sm font-bold text-gray-900 mb-1">
                   {uploadingImages
-                    ? 'Uploading & Optimizing with Cloudinary...'
+                    ? uploadProgressText || 'Uploading & Optimizing with Cloudinary...'
                     : 'Upload Photos from Device'}
                 </h4>
                 <p className="text-xs text-gray-500 mb-2">

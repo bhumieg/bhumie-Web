@@ -18,17 +18,9 @@ export async function uploadImageToCloudinary(
   folder: string = 'bhumie/properties'
 ): Promise<{ success: boolean; url: string; optimizedUrl: string; publicId: string; error?: string }> {
   try {
-    let uploadData: string;
-
-    if (Buffer.isBuffer(fileBufferOrBase64)) {
-      uploadData = `data:image/jpeg;base64,${fileBufferOrBase64.toString('base64')}`;
-    } else {
-      uploadData = fileBufferOrBase64;
-    }
-
-    const res = await cloudinary.uploader.upload(uploadData, {
+    const uploadOptions = {
       folder,
-      resource_type: 'image',
+      resource_type: 'image' as const,
       transformation: [
         {
           quality: 'auto',
@@ -37,7 +29,21 @@ export async function uploadImageToCloudinary(
           width: 1400,
         },
       ],
-    });
+    };
+
+    let res: any;
+
+    if (Buffer.isBuffer(fileBufferOrBase64)) {
+      res = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        });
+        stream.end(fileBufferOrBase64);
+      });
+    } else {
+      res = await cloudinary.uploader.upload(fileBufferOrBase64, uploadOptions);
+    }
 
     // Generate maximum-performance optimized delivery URL
     const optimizedUrl = cloudinary.url(res.public_id, {
@@ -86,4 +92,3 @@ export function getOptimizedImageUrl(url: string, width: number = 1200): string 
 
   return url;
 }
-
