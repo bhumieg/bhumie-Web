@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         locality,
         city,
         state,
-        images: Array.isArray(images) && images.length > 0 ? images : ['https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'],
+        images: Array.isArray(images) ? images : [],
         amenities: Array.isArray(amenities) ? amenities : [],
         verified: Boolean(verified),
         featured: Boolean(featured),

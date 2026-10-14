@@ -52,10 +52,7 @@ export default function PostPropertyPage() {
     furnishing: 'Semi Furnished',
 
     // Step 2: Photos & Video
-    images: [
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
-    ],
+    images: [] as string[],
     videoUrl: '',
 
     // Step 3: Location
@@ -525,81 +522,83 @@ export default function PostPropertyPage() {
             )}
 
             {/* Image Preview & Reorder Grid (Requirement 13) */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-700 uppercase">
-                  Uploaded Photos ({formData.images.length})
-                </label>
-                <span className="text-[11px] text-gray-400">
-                  First photo is the Main Cover Listing Photo
-                </span>
-              </div>
+            {formData.images.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-gray-700 uppercase">
+                    Uploaded Photos ({formData.images.length})
+                  </label>
+                  <span className="text-[11px] text-gray-400">
+                    First photo is the Main Cover Listing Photo
+                  </span>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {formData.images.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className="relative rounded-2xl overflow-hidden bg-gray-100 group border border-gray-200 shadow-xs flex flex-col"
-                  >
-                    <div className="relative aspect-video">
-                      <img
-                        src={img}
-                        alt={`Upload ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      {idx === 0 && (
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-black flex items-center gap-1 shadow-sm">
-                          <Star className="w-3 h-3 fill-white" />
-                          Cover Photo
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeImage(idx)}
-                        className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
-                        title="Delete photo"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Image Action Toolbar: Reorder & Set as Cover */}
-                    <div className="p-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {formData.images.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="relative rounded-2xl overflow-hidden bg-gray-100 group border border-gray-200 shadow-xs flex flex-col"
+                    >
+                      <div className="relative aspect-video">
+                        <img
+                          src={img}
+                          alt={`Upload ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {idx === 0 && (
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-black flex items-center gap-1 shadow-sm">
+                            <Star className="w-3 h-3 fill-white" />
+                            Cover Photo
+                          </span>
+                        )}
                         <button
                           type="button"
-                          disabled={idx === 0}
-                          onClick={() => moveImage(idx, 'left')}
-                          className="p-1 rounded-lg hover:bg-gray-200 text-gray-600 disabled:opacity-30 cursor-pointer"
-                          title="Move left"
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                          title="Delete photo"
                         >
-                          <MoveLeft className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === formData.images.length - 1}
-                          onClick={() => moveImage(idx, 'right')}
-                          className="p-1 rounded-lg hover:bg-gray-200 text-gray-600 disabled:opacity-30 cursor-pointer"
-                          title="Move right"
-                        >
-                          <MoveRight className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
-                      {idx !== 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setAsCover(idx)}
-                          className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
-                        >
-                          Set as Cover
-                        </button>
-                      )}
+                      {/* Image Action Toolbar: Reorder & Set as Cover */}
+                      <div className="p-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => moveImage(idx, 'left')}
+                            className="p-1 rounded-lg hover:bg-gray-200 text-gray-600 disabled:opacity-30 cursor-pointer"
+                            title="Move left"
+                          >
+                            <MoveLeft className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === formData.images.length - 1}
+                            onClick={() => moveImage(idx, 'right')}
+                            className="p-1 rounded-lg hover:bg-gray-200 text-gray-600 disabled:opacity-30 cursor-pointer"
+                            title="Move right"
+                          >
+                            <MoveRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {idx !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setAsCover(idx)}
+                            className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                          >
+                            Set as Cover
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Alternative: Add Image URL manually */}
             <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
@@ -965,14 +964,18 @@ export default function PostPropertyPage() {
 
             {/* Summary Card */}
             <div className="bg-gray-50 rounded-3xl p-5 sm:p-6 border border-gray-200 flex flex-col sm:flex-row gap-5">
-              <img
-                src={
-                  formData.images[0] ||
-                  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=500&q=80'
-                }
-                alt="Preview"
-                className="w-full sm:w-44 h-36 rounded-2xl object-cover shrink-0"
-              />
+              {formData.images.length > 0 ? (
+                <img
+                  src={formData.images[0]}
+                  alt="Preview"
+                  className="w-full sm:w-44 h-36 rounded-2xl object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-full sm:w-44 h-36 rounded-2xl bg-gray-200/80 border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 shrink-0">
+                  <Upload className="w-6 h-6 mb-1 opacity-50" />
+                  <span className="text-[11px] font-bold">No photo added</span>
+                </div>
+              )}
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-bold uppercase">
