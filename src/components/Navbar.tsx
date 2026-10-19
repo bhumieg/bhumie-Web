@@ -21,7 +21,9 @@ import {
   BellOff,
   Check,
   ChevronRight,
+  Camera,
 } from 'lucide-react';
+import { notificationManager } from '@/lib/browserNotifications';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -37,31 +39,62 @@ export default function Navbar() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadList, setUnreadList] = useState<any[]>([]);
+  const [notifPermission, setNotifPermission] = useState<string>('default');
 
   const notifRef = useRef<HTMLDivElement>(null);
   const mobileNotifRef = useRef<HTMLDivElement>(null);
+  const lastUnreadCountRef = useRef<number | null>(null);
+
+  // Check notification permission on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
 
   // Hide User Portal Navbar completely on Admin Portal
   if (pathname?.startsWith('/admin')) {
     return null;
   }
 
-  // Poll for unread chats
+  // Poll for unread chats (skip if currently on /chat)
   useEffect(() => {
     if (!user) {
       setUnreadCount(0);
       setUnreadList([]);
+      lastUnreadCountRef.current = null;
       return;
     }
 
     const fetchUnread = async () => {
+      // If user is already on /chat, skip polling to reduce database load
+      if (pathname?.startsWith('/chat')) {
+        return;
+      }
+
       try {
         const res = await fetch('/api/chat/unread-count');
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
-            setUnreadCount(data.unreadCount || 0);
-            setUnreadList(data.recentUnread || []);
+            const count = data.unreadCount || 0;
+            const recent = data.recentUnread || [];
+
+            // Detect new incoming message: fire system notification and sound chime!
+            if (lastUnreadCountRef.current !== null && count > lastUnreadCountRef.current && recent.length > 0) {
+              const latest = recent[0];
+              notificationManager.sendNotification({
+                title: `Bhumie: New message from ${latest.otherUserName || 'User'}`,
+                body: latest.lastMessage || 'You received a new message',
+                icon: latest.propertyImage || '/favicon.ico',
+                tag: `chat-${latest.id}`,
+                onClick: () => router.push(`/chat?id=${latest.id}`),
+              });
+            }
+
+            lastUnreadCountRef.current = count;
+            setUnreadCount(count);
+            setUnreadList(recent);
           }
         }
       } catch {
@@ -70,7 +103,7 @@ export default function Navbar() {
     };
 
     fetchUnread();
-    const interval = setInterval(fetchUnread, 9000);
+    const interval = setInterval(fetchUnread, 10000);
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -249,6 +282,26 @@ export default function Navbar() {
                     )}
                   </div>
 
+                  {/* Enable System Push / Alerts Button */}
+                  {notifPermission === 'default' && (
+                    <div className="p-2.5 bg-blue-50/90 border-b border-blue-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-blue-800 font-semibold text-[11px]">
+                        <BellRing className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span>Enable instant sound & push alerts</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const granted = await notificationManager.requestPermission();
+                          setNotifPermission(granted ? 'granted' : 'denied');
+                        }}
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded-lg shadow-xs cursor-pointer"
+                      >
+                        Enable
+                      </button>
+                    </div>
+                  )}
+
                   <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                     {unreadList.length > 0 ? (
                       unreadList.map((item) => (
@@ -377,6 +430,15 @@ export default function Navbar() {
                     </Link>
 
                     <Link
+                      href="/profile"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl"
+                    >
+                      <Camera className="w-4 h-4 text-blue-600" />
+                      Upload / Change Profile Photo
+                    </Link>
+
+                    <Link
                       href="/chat"
                       onClick={() => setDropdownOpen(false)}
                       className="flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 rounded-xl"
@@ -444,8 +506,23 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Action Buttons (Bell Notification, Post Property, Hamburger Menu) */}
+          {/* Mobile Action Buttons (Profile Avatar, Bell Notification, Post Property, Hamburger Menu) */}
           <div className="md:hidden flex items-center gap-2">
+            {/* Mobile User Profile Avatar / Initial */}
+            {user && (
+              <Link
+                href="/profile"
+                className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 flex items-center justify-center bg-blue-600 text-white font-black text-xs shrink-0 shadow-xs cursor-pointer hover:scale-105 transition-transform"
+                title="My Profile"
+              >
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name || 'User'} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{user.name ? user.name[0].toUpperCase() : user.email ? user.email[0].toUpperCase() : 'U'}</span>
+                )}
+              </Link>
+            )}
+
             {/* Notification Bell (Mobile Header) */}
             <div ref={mobileNotifRef} className="relative">
               <button
@@ -480,6 +557,26 @@ export default function Navbar() {
                       <span className="text-[11px] font-semibold text-emerald-600">All caught up</span>
                     )}
                   </div>
+
+                  {/* Enable System Push / Alerts Button */}
+                  {notifPermission === 'default' && (
+                    <div className="p-2.5 bg-blue-50/90 border-b border-blue-100 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-blue-800 font-semibold text-[11px]">
+                        <BellRing className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span>Enable instant sound & push alerts</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const granted = await notificationManager.requestPermission();
+                          setNotifPermission(granted ? 'granted' : 'denied');
+                        }}
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded-lg shadow-xs cursor-pointer"
+                      >
+                        Enable
+                      </button>
+                    </div>
+                  )}
 
                   <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
                     {unreadList.length > 0 ? (
@@ -616,10 +713,32 @@ export default function Navbar() {
 
             <div className="pt-3 border-t border-gray-100">
               {user ? (
-                <div className="space-y-2">
-                  <div className="px-3 text-xs text-gray-500">
-                    Logged in as <strong className="text-gray-900">{user.email}</strong>
+                <div className="space-y-3">
+                  {/* User Profile Card with Avatar or Capital Initial Letter */}
+                  <div className="p-3 bg-gray-50 rounded-2xl flex items-center gap-3 border border-gray-200/80">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-blue-600 text-white font-black text-base flex items-center justify-center shrink-0 border-2 border-white shadow-xs">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt={user.name || 'User'} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{user.name ? user.name[0].toUpperCase() : user.email ? user.email[0].toUpperCase() : 'U'}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-black text-gray-900 truncate">
+                        {user.name || user.email.split('@')[0]}
+                      </h4>
+                      <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
+                      <Link
+                        href="/profile"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:underline mt-0.5"
+                      >
+                        <Camera className="w-3 h-3" />
+                        <span>Upload Profile Photo</span>
+                      </Link>
+                    </div>
                   </div>
+
                   <Link
                     href="/profile"
                     onClick={() => setMobileMenuOpen(false)}
@@ -639,7 +758,7 @@ export default function Navbar() {
                       logout();
                       setMobileMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50"
+                    className="w-full text-left px-3 py-2 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50 cursor-pointer"
                   >
                     Sign Out
                   </button>

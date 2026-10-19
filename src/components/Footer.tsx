@@ -8,8 +8,8 @@ import { Home, Mail, Phone, MapPin, Shield } from 'lucide-react';
 export default function Footer() {
   const pathname = usePathname();
 
-  // Hide User Portal Footer completely on Admin Portal
-  if (pathname?.startsWith('/admin')) {
+  // Hide User Portal Footer completely on Admin Portal and Chat Screen
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/chat')) {
     return null;
   }
   return (

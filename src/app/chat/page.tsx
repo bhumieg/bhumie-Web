@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
+import { notificationManager } from '@/lib/browserNotifications';
 import {
   MessageCircle,
   Send,
@@ -18,6 +19,7 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
+  Camera,
 } from 'lucide-react';
 
 interface ConversationItem {
@@ -37,6 +39,7 @@ interface ConversationItem {
     id: string;
     name: string | null;
     email: string;
+    avatar?: string | null;
   };
   lastMessage: string | null;
   lastMessageAt: string;
@@ -51,6 +54,7 @@ interface Message {
   text: string;
   isRead: boolean;
   createdAt: string;
+  pending?: boolean;
 }
 
 interface ActiveConversationData {
@@ -72,6 +76,7 @@ interface ActiveConversationData {
     name: string | null;
     email: string;
     phone?: string | null;
+    avatar?: string | null;
   };
   messages: Message[];
 }
@@ -91,7 +96,9 @@ function ChatContent() {
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialLoadRef = useRef<boolean>(true);
+  const prevMessagesCountRef = useRef<number>(0);
 
   const quickReplies = [
     'Is this property still available?',
@@ -100,13 +107,21 @@ function ChatContent() {
     'Please share the exact address',
   ];
 
+  // Helper to scroll ONLY the internal messages div to the bottom (NEVER scrolling the page window)
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
+    }
+  };
+
   // 1. Fetch Conversations List
   const fetchConversations = async () => {
     try {
       const res = await fetch('/api/chat/conversations');
-      if (res.status === 401) {
-        return;
-      }
+      if (res.status === 401) return;
       const data = await res.json();
       if (data.success) {
         setConversations(data.conversations);
@@ -128,8 +143,52 @@ function ChatContent() {
       const res = await fetch(`/api/chat/conversations/${id}`);
       if (res.status === 401) return;
       const data = await res.json();
-      if (data.success) {
-        setActiveChat(data.conversation);
+      if (data.success && data.conversation) {
+        const newConvo: ActiveConversationData = data.conversation;
+
+        setActiveChat((prev) => {
+          if (!prev || prev.id !== newConvo.id) {
+            isInitialLoadRef.current = true;
+            return newConvo;
+          }
+
+          const prevLen = prev.messages.length;
+          const newLen = newConvo.messages.length;
+
+          // Check if new incoming message from the other person
+          if (newLen > prevLen) {
+            const lastMsg = newConvo.messages[newLen - 1];
+            if (!lastMsg.isMine) {
+              // Sound chime & desktop/mobile system notification
+              notificationManager.sendNotification({
+                title: `Bhumie: ${newConvo.otherUser.name || 'New Message'}`,
+                body: lastMsg.text,
+                icon: newConvo.otherUser.avatar || newConvo.property.images?.[0] || '/favicon.ico',
+                tag: `chat-${newConvo.id}`,
+              });
+            }
+
+            // Check if user is scrolled near bottom
+            const container = messagesContainerRef.current;
+            if (container) {
+              const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+              if (isNearBottom) {
+                setTimeout(() => scrollToBottom('smooth'), 50);
+              }
+            }
+          }
+
+          // If messages identical, avoid unnecessary state update
+          if (
+            prevLen === newLen &&
+            prev.messages[prevLen - 1]?.id === newConvo.messages[newLen - 1]?.id &&
+            prev.messages.every((m, i) => m.isRead === newConvo.messages[i]?.isRead)
+          ) {
+            return prev;
+          }
+
+          return newConvo;
+        });
       }
     } catch (e) {
       console.error('Failed to fetch messages:', e);
@@ -141,6 +200,7 @@ function ChatContent() {
   useEffect(() => {
     if (conversationIdFromUrl) {
       setActiveId(conversationIdFromUrl);
+      isInitialLoadRef.current = true;
     }
   }, [conversationIdFromUrl]);
 
@@ -148,34 +208,65 @@ function ChatContent() {
     fetchConversations();
   }, [user]);
 
-  // Handle active conversation selection & polling
+  // Handle active conversation selection & smart polling
   useEffect(() => {
     if (!activeId) return;
 
+    isInitialLoadRef.current = true;
     fetchActiveChat(activeId);
 
-    // Poll every 3 seconds for live 2-way messages
+    // Poll every 3 seconds, but pause if tab is hidden
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return; // don't poll while tab is hidden
+      }
       fetchActiveChat(activeId, true);
     }, 3000);
 
     return () => clearInterval(interval);
   }, [activeId]);
 
-  // Auto-scroll to bottom of messages
+  // Auto-scroll on initial conversation load
   useEffect(() => {
-    if (activeChat?.messages) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeChat?.messages && isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      setTimeout(() => scrollToBottom('auto'), 50);
     }
-  }, [activeChat?.messages]);
+    prevMessagesCountRef.current = activeChat?.messages.length || 0;
+  }, [activeChat?.id, activeChat?.messages]);
 
-  // Send message
+  // Send message with instant optimistic update
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text || !activeId || sending) return;
 
-    setSending(true);
     setInputText('');
+
+    const tempId = 'temp-' + Date.now();
+    const optimisticMsg: Message = {
+      id: tempId,
+      senderId: user?.id || 'me',
+      senderName: user?.name || 'You',
+      isMine: true,
+      text,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      pending: true,
+    };
+
+    // 1. Instantly display in UI
+    setActiveChat((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        messages: [...prev.messages, optimisticMsg],
+      };
+    });
+
+    // 2. Scroll immediately inside messages box
+    setTimeout(() => scrollToBottom('smooth'), 20);
+
+    setSending(true);
 
     try {
       const res = await fetch(`/api/chat/conversations/${activeId}/messages`, {
@@ -185,9 +276,15 @@ function ChatContent() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        // Optimistically update or fetch
-        fetchActiveChat(activeId, true);
+      if (data.success && data.message) {
+        // Replace optimistic message with actual DB message
+        setActiveChat((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.map((m) => (m.id === tempId ? { ...data.message, isMine: true } : m)),
+          };
+        });
         fetchConversations();
       }
     } catch (e) {
@@ -220,8 +317,9 @@ function ChatContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden flex flex-col md:flex-row h-[82vh]">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 sm:py-4">
+      {/* Container constrained to viewport so whole page stays locked and doesn't jump */}
+      <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden flex flex-col md:flex-row h-[calc(100dvh-6rem)] max-h-[900px]">
         
         {/* Left Column: Conversations List */}
         <div
@@ -270,30 +368,45 @@ function ChatContent() {
               conversations.map((c) => {
                 const isSelected = activeId === c.id;
                 const thumb = c.property.images?.[0] || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=200';
+                const initialLetter = c.otherUser.name
+                  ? c.otherUser.name[0].toUpperCase()
+                  : c.otherUser.email[0].toUpperCase();
+
                 return (
                   <button
                     key={c.id}
                     onClick={() => {
                       setActiveId(c.id);
+                      isInitialLoadRef.current = true;
                       router.push(`/chat?id=${c.id}`);
                     }}
                     className={`w-full p-4 text-left transition-colors flex items-start gap-3 cursor-pointer ${
                       isSelected ? 'bg-blue-50/70' : 'hover:bg-gray-50'
                     }`}
                   >
-                    {/* Property Thumbnail */}
-                    <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
-                      <Image
-                        src={thumb}
-                        alt={c.property.title}
-                        fill
-                        className="object-cover"
-                        sizes="48px"
-                      />
+                    {/* User Avatar with initial fallback / Property Thumbnail */}
+                    <div className="relative shrink-0">
+                      <div className="relative w-12 h-12 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200">
+                        {c.otherUser.avatar ? (
+                          <img
+                            src={c.otherUser.avatar}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-blue-600 text-white font-black text-sm flex items-center justify-center">
+                            {initialLetter}
+                          </div>
+                        )}
+                      </div>
+                      {/* Property mini badge on avatar */}
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-md overflow-hidden border border-white shadow-xs">
+                        <img src={thumb} alt="" className="w-full h-full object-cover" />
+                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-0.5">
                         <h3 className="text-xs font-black text-gray-900 truncate">
                           {c.otherUser.name || c.otherUser.email.split('@')[0]}
                           <span className="text-[10px] font-medium text-gray-400 ml-1">
@@ -329,29 +442,40 @@ function ChatContent() {
 
         {/* Right Column: Chat Room Window */}
         <div
-          className={`flex-1 flex flex-col bg-gray-50/30 ${
+          className={`flex-1 flex flex-col bg-gray-50/30 overflow-hidden ${
             !activeId ? 'hidden md:flex' : 'flex'
           }`}
         >
           {activeChat ? (
             <>
-              {/* Chat Room Top Bar */}
-              <div className="p-4 bg-white border-b border-gray-200 flex items-center justify-between shadow-xs">
+              {/* Chat Room Top Bar - LOCKED IN PLACE */}
+              <div className="p-3.5 sm:p-4 bg-white border-b border-gray-200 flex items-center justify-between shadow-xs shrink-0 z-10">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => {
                       setActiveId(null);
                       router.push('/chat');
                     }}
-                    className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100"
+                    className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
 
-                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black text-base flex items-center justify-center shadow-sm">
-                    {activeChat.otherUser.name
-                      ? activeChat.otherUser.name[0].toUpperCase()
-                      : activeChat.otherUser.email[0].toUpperCase()}
+                  {/* Other User Avatar or Initial Letter */}
+                  <div className="w-10 h-10 rounded-2xl overflow-hidden bg-blue-600 text-white font-black text-base flex items-center justify-center shadow-sm shrink-0 border border-blue-500/20">
+                    {activeChat.otherUser.avatar ? (
+                      <img
+                        src={activeChat.otherUser.avatar}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>
+                        {activeChat.otherUser.name
+                          ? activeChat.otherUser.name[0].toUpperCase()
+                          : activeChat.otherUser.email[0].toUpperCase()}
+                      </span>
+                    )}
                   </div>
 
                   <div>
@@ -359,7 +483,7 @@ function ChatContent() {
                       <h2 className="text-sm font-black text-gray-900 leading-tight">
                         {activeChat.otherUser.name || activeChat.otherUser.email.split('@')[0]}
                       </h2>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                       <span className="text-[11px] text-emerald-600 font-bold">Online</span>
                     </div>
                     <p className="text-[11px] text-gray-500">
@@ -393,25 +517,32 @@ function ChatContent() {
               </div>
 
               {/* Property Details Banner */}
-              <div className="bg-blue-50/70 border-b border-blue-100 px-4 py-2.5 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-blue-900">
+              <div className="bg-blue-50/70 border-b border-blue-100 px-4 py-2 flex items-center justify-between text-xs shrink-0">
+                <div className="flex items-center gap-2 text-blue-900 truncate">
                   <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span className="font-medium">
-                    Discussing: <strong>{activeChat.property.title}</strong> in {activeChat.property.locality},{' '}
-                    {activeChat.property.city}
+                  <span className="font-medium truncate">
+                    Discussing: <strong>{activeChat.property.title}</strong>
                   </span>
                 </div>
                 <Link
                   href={`/properties/${activeChat.property.id}`}
                   className="text-blue-700 font-bold hover:underline shrink-0 ml-2"
                 >
-                  View Details
+                  View Property
                 </Link>
               </div>
 
-              {/* Messages Thread */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-3">
-                {activeChat.messages.length === 0 ? (
+              {/* Messages Thread - SCROLLS INTERNALLY ONLY (NEVER SCROLLS PAGE) */}
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 p-4 overflow-y-auto space-y-3"
+              >
+                {loadingChat && activeChat.messages.length === 0 ? (
+                  <div className="flex items-center justify-center py-20 text-gray-400 text-xs gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                    <span>Loading conversation...</span>
+                  </div>
+                ) : activeChat.messages.length === 0 ? (
                   <div className="text-center py-12 text-gray-400 text-xs">
                     Start the conversation! Say hello or use one of the quick replies below.
                   </div>
@@ -441,7 +572,9 @@ function ChatContent() {
                             })}
                           </span>
                           {m.isMine && (
-                            m.isRead ? (
+                            m.pending ? (
+                              <Clock className="w-3 h-3 text-blue-200 animate-pulse" />
+                            ) : m.isRead ? (
                               <CheckCheck className="w-3.5 h-3.5 text-blue-200" />
                             ) : (
                               <Check className="w-3.5 h-3.5 text-blue-200" />
@@ -452,11 +585,10 @@ function ChatContent() {
                     </div>
                   ))
                 )}
-                <div ref={messagesEndRef} />
               </div>
 
               {/* OLX-style Quick Action Chips */}
-              <div className="px-4 py-2 bg-white border-t border-gray-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
+              <div className="px-4 py-2 bg-white border-t border-gray-100 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
                 <span className="text-[11px] font-bold text-gray-400 flex items-center gap-1 shrink-0">
                   <Sparkles className="w-3 h-3 text-amber-500" /> Suggestions:
                 </span>
@@ -472,8 +604,8 @@ function ChatContent() {
                 ))}
               </div>
 
-              {/* Message Input Box */}
-              <div className="p-3 bg-white border-t border-gray-200">
+              {/* Message Input Box - PINNED AT BOTTOM */}
+              <div className="p-3 bg-white border-t border-gray-200 shrink-0">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -532,4 +664,3 @@ export default function ChatPage() {
     </Suspense>
   );
 }
-

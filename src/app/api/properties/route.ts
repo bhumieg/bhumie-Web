@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       success: true,
       total,
       page,
@@ -128,6 +128,12 @@ export async function GET(req: NextRequest) {
       totalPages: Math.ceil(total / limit),
       properties,
     });
+
+    if (!search && !city && !locality) {
+      res.headers.set('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=60');
+    }
+
+    return res;
   } catch (error: any) {
     console.error('get properties error:', error);
     return NextResponse.json(

@@ -332,9 +332,9 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Quick Summary */}
+            {/* Quick Summary & Upload Button */}
             <div className="flex-1 text-center sm:text-left">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-2">
                 <h2 className="text-xl sm:text-2xl font-black text-gray-900">
                   {name || user.email.split('@')[0]}
                 </h2>
@@ -343,8 +343,50 @@ export default function ProfilePage() {
                 <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
                   {role === 'OWNER' ? 'Property Seller' : 'Buyer'}
                 </span>
+              </div>
 
-                {/* Verification Badge */}
+              {/* Direct Profile Photo Action Button */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {uploadingAvatar ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Optimizing & Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>{avatar ? 'Change Profile Photo' : 'Upload Profile Photo'}</span>
+                    </>
+                  )}
+                </button>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setAvatar('');
+                      await fetch('/api/user/profile', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ avatar: null }),
+                      });
+                      await refreshUser();
+                      fetchProfile();
+                    }}
+                    className="px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:text-red-600 hover:bg-red-50 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Remove Photo
+                  </button>
+                )}
+              </div>
+
+              {/* Verification Badge */}
+              <div className="mt-3">
                 {isVerified ? (
                   <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

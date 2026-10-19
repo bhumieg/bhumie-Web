@@ -35,17 +35,19 @@ export async function GET(
           },
         },
         buyer: {
-          select: { id: true, name: true, email: true, phone: true },
+          select: { id: true, name: true, email: true, phone: true, avatar: true },
         },
         owner: {
-          select: { id: true, name: true, email: true, phone: true },
+          select: { id: true, name: true, email: true, phone: true, avatar: true },
         },
         messages: {
           orderBy: { createdAt: 'asc' },
-          include: {
-            sender: {
-              select: { id: true, name: true, email: true },
-            },
+          select: {
+            id: true,
+            senderId: true,
+            text: true,
+            isRead: true,
+            createdAt: true,
           },
         },
       },
@@ -66,15 +68,18 @@ export async function GET(
       );
     }
 
-    // Mark unread messages sent by the other user as read
-    await prisma.chatMessage.updateMany({
-      where: {
-        conversationId: id,
-        senderId: { not: user.id },
-        isRead: false,
-      },
-      data: { isRead: true },
-    });
+    // Only mark unread messages sent by the other user as read IF any unread messages actually exist!
+    const hasUnread = conversation.messages.some((m) => !m.isRead && m.senderId !== user.id);
+    if (hasUnread) {
+      await prisma.chatMessage.updateMany({
+        where: {
+          conversationId: id,
+          senderId: { not: user.id },
+          isRead: false,
+        },
+        data: { isRead: true },
+      });
+    }
 
     const isOwner = conversation.ownerId === user.id;
     const otherUser = isOwner ? conversation.buyer : conversation.owner;
@@ -88,17 +93,23 @@ export async function GET(
         buyerId: conversation.buyerId,
         ownerId: conversation.ownerId,
         isOwner,
-        currentUser: { id: user.id, name: user.name, email: user.email },
+        currentUser: { id: user.id, name: user.name, email: user.email, avatar: user.avatar },
         otherUser,
-        messages: conversation.messages.map((m) => ({
-          id: m.id,
-          senderId: m.senderId,
-          senderName: m.sender.name || m.sender.email.split('@')[0],
-          isMine: m.senderId === user.id,
-          text: m.text,
-          isRead: m.isRead,
-          createdAt: m.createdAt,
-        })),
+        messages: conversation.messages.map((m) => {
+          const senderName =
+            m.senderId === user.id
+              ? user.name || user.email.split('@')[0]
+              : otherUser.name || otherUser.email.split('@')[0];
+          return {
+            id: m.id,
+            senderId: m.senderId,
+            senderName,
+            isMine: m.senderId === user.id,
+            text: m.text,
+            isRead: hasUnread && m.senderId !== user.id ? true : m.isRead,
+            createdAt: m.createdAt,
+          };
+        }),
         createdAt: conversation.createdAt,
       },
     });

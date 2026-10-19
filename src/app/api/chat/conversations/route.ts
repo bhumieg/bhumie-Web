@@ -34,10 +34,10 @@ export async function GET(req: NextRequest) {
           },
         },
         buyer: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, avatar: true },
         },
         owner: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, avatar: true },
         },
         _count: {
           select: {
