@@ -286,8 +286,9 @@ export default function HomePage() {
           </div>
 
           {/* Main Hero Heading */}
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 tracking-tight leading-[1.1] mb-6">
-            Find your next <span className="text-blue-600">perfect place</span>
+          <h1 className="text-[clamp(1.1rem,5vw,2.25rem)] sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight mb-6 whitespace-nowrap sm:whitespace-normal overflow-visible">
+            <span className="text-gray-950">Find your next</span>{' '}
+            <span className="text-blue-600">perfect place</span>
           </h1>
 
           {/* SEPARATE BUY AND SELL BUTTONS (Requirement 10) */}
